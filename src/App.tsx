@@ -10,6 +10,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Receive } from './pages/Receive'
 import { useAuthStore } from './store/auth'
 import { useTheme } from './hooks/use-theme'
+import { VerifyEmail } from './pages/VerifyEmail'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +67,7 @@ function App() {
                 path="receive" 
                 element={isAuthenticated ? <Receive /> : <Navigate to="/login" replace />} 
               />
+              <Route path="verify-email" element={<VerifyEmail />} />
             </Route>
           </Routes>
           <Toaster />

@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Mic } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuthStore } from '@/store/auth'
-import { useToast } from '@/hooks/use-toast'
+import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
+import { useAuthStore } from '../store/auth'
+import { useToast } from '../hooks/use-toast'
 
 export function Register() {
   const [email, setEmail] = useState('')
@@ -43,12 +43,18 @@ export function Register() {
 
     try {
       await signUp(email, password)
+    
       toast({
         title: "Welcome to VoicePay!",
         description: "Your account and Algorand wallet have been created successfully."
       })
       navigate('/dashboard')
     } catch (error) {
+      if (error instanceof Error && error.message === "EMAIL_VERIFICATION_REQUIRED") {
+        navigate('/verify-email', { state: { email } })
+        return
+      }
+
       toast({
         title: "Registration Failed",
         description: error instanceof Error ? error.message : "Failed to create account",
