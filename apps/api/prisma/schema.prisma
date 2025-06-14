@@ -1,0 +1,95 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  name      String?
+  avatar    String?
+  bio       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  posts     Post[]
+  comments  Comment[]
+  likes     Like[]
+  follows   Follow[] @relation("UserFollows")
+  followers Follow[] @relation("UserFollowers")
+
+  @@map("users")
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  excerpt     String?
+  coverImage  String?
+  published   Boolean  @default(false)
+  slug        String   @unique
+  tags        String[] // SQLite doesn't support arrays, so we'll store as JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String
+  comments Comment[]
+  likes    Like[]
+
+  @@map("posts")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String
+  post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId   String
+
+  @@map("comments")
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+
+  @@unique([userId, postId])
+  @@map("likes")
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+
+  // Relations
+  follower    User   @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId  String
+  following   User   @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  followingId String
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
