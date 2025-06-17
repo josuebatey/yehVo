@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Mic } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuthStore } from '@/store/auth'
-import { useToast } from '@/hooks/use-toast'
+import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
+import { useAuthStore } from '../store/auth'
+import { useToast } from '../hooks/use-toast'
 
 export function Login() {
   const [email, setEmail] = useState('')
@@ -22,13 +22,16 @@ export function Login() {
     setIsLoading(true)
 
     try {
-      await signIn(email, password)
+      const user = await signIn(email.trim(), password)
+
+      console.log(user)
       toast({
         title: "Welcome back!",
         description: "You've successfully signed in to VoicePay."
       })
       navigate('/dashboard')
     } catch (error) {
+      console.error("Sign in error:", error)
       toast({
         title: "Sign In Failed",
         description: error instanceof Error ? error.message : "Invalid email or password",
