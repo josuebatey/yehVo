@@ -24,6 +24,7 @@ interface AuthState {
   signOut: () => Promise<void>;
   initializeAuth: () => Promise<void>;
   upgradeToProUser: () => Promise<boolean>;
+  completeUserSetup: (user: User) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -40,21 +41,37 @@ export const useAuthStore = create<AuthState>()(
           // 1. Create Supabase auth user
           const { data: authData, error: authError } =
             await supabase.auth.signUp({ email, password });
+
           if (authError) throw authError;
           if (!authData.user) throw new Error("User creation failed");
 
-          // 2. Require email verification
+          // 2. Check if email verification is required
           if (!authData.user.confirmed_at) {
             set({ isLoading: false });
             throw new Error("EMAIL_VERIFICATION_REQUIRED");
           }
+          // 3. User is already confirmed, proceed with setup
+          await get().completeUserSetup(authData.user as any);
+          
+        } catch (error) {
+          set({ isLoading: false });
+          throw error;
+        }
+      },
 
-          // 3. Remove duplicate user if exists
+      // Helper method to complete user setup after email verification
+      completeUserSetup: async (user: User) => {
+        try {
+          if (!user || !user.id || !user.email) {
+            throw new Error("Invalid user data");
+          }
+
+          // 1. Remove duplicate user if exists
           const { data: existingUser, error: existingUserError } =
             await supabase
               .from("users")
               .select("*")
-              .eq("id", authData.user.id)
+              .eq("id", user.id)
               .maybeSingle();
           if (existingUserError) throw existingUserError;
           if (existingUser) {
@@ -65,10 +82,10 @@ export const useAuthStore = create<AuthState>()(
             if (deleteError) throw deleteError;
           }
 
-          // 4. Create Algorand wallet
+          // 2. Create Algorand wallet
           const wallet = algorandService.createWallet();
 
-          // 5. Encrypt wallet seed
+          // 3. Encrypt wallet seed
           const { data: encryptedSeed, error: encryptError } =
             await supabase.rpc("encrypt_seed", {
               seed: wallet.mnemonic,
@@ -80,35 +97,44 @@ export const useAuthStore = create<AuthState>()(
             );
           }
 
-          // 6. Store user data in database
-          const { error: dbError } = await supabase.from("users").insert({
-            id: authData.user.id,
-            email: authData.user.email!,
+          // 4. Store user data in database
+          const { data:insertedUser,error: dbError } = await supabase.from("users").insert({
+            id: user.id,
+            email: user.email,
             algorand_address: wallet.address,
             encrypted_seed: encryptedSeed || wallet.mnemonic,
           });
-          if (dbError) throw dbError;
 
-          console.log(authData);
+          console.log("INSERTED USER", insertedUser);
 
-          // 7. Initialize RevenueCat
-          await revenueCatService.initialize(authData.user.id);
+          if (dbError) {
+            console.error("Database error:", dbError);
+            throw new Error("Failed to create user profile. Please try again.");
+          }
 
-          // 8. Set state
+          // 5. Initialize RevenueCat
+          try {
+            await revenueCatService.initialize(user.id);
+          } catch (rcError) {
+            console.warn("RevenueCat initialization failed:", rcError);
+            // Don't fail the signup if RevenueCat fails
+          }
+
+          // 6. Set state
           set({
             user: {
-              id: authData.user.id,
-              email: authData.user.email!,
+              id: user.id,
+              email: user.email,
               algorandAddress: wallet.address,
               isPro: false,
-              createdAt: authData.user.created_at!,
+              createdAt: (user as any).created_at || new Date().toISOString(),
             },
             wallet,
             isAuthenticated: true,
             isLoading: false,
           });
         } catch (error) {
-          set({ isLoading: false });
+          console.error("User setup failed:", error);
           throw error;
         }
       },
@@ -116,49 +142,51 @@ export const useAuthStore = create<AuthState>()(
       signIn: async (email, password) => {
         set({ isLoading: true });
         try {
-          // 1. Sign in with Supabase Auth
+          // 1. Sign in with Supabase
           const { data: authData, error: authError } =
             await supabase.auth.signInWithPassword({ email, password });
           if (authError) throw authError;
           if (!authData.user) throw new Error("Sign in failed");
 
-          // 2. Try to get user data from database
-          let { data: userData, error: userError } = await supabase
+          // 2. Get user data from database
+          const { data: userData, error: userError } = await supabase
             .from("users")
             .select("*")
             .eq("id", authData.user.id)
             .single();
 
-          // 3. If not found, create the user profile
-          if (userError && userError.code === "PGRST116") {
-            // Create Algorand wallet
-            const wallet = algorandService.createWallet();
-
-            // Encrypt wallet seed
-            const { data: encryptedSeed, error: encryptError } =
-              await supabase.rpc("encrypt_seed", { seed: wallet.mnemonic });
-            if (encryptError) {
-              console.warn(
-                "Seed encryption failed, storing as-is:",
-                encryptError
-              );
+            console.log("USER  ERROR", userError);
+          
+          let finalUserData = userData;
+          
+          // 3. If user doesn't exist in database, create the profile
+          if (userError && userError.code === 'PGRST116') {
+            console.log("User profile not found, creating one...");
+            try {
+              if (!authData.user) {
+                throw new Error("No authenticated user found");
+              }
+              await get().completeUserSetup(authData.user as any);
+              
+              // Fetch the newly created user data
+              const { data: newUserData, error: fetchError } = await supabase
+                .from("users")
+                .select("*")
+                .eq("id", authData.user.id)
+                .single();
+              
+              if (fetchError) throw fetchError;
+              finalUserData = newUserData;
+            } catch (setupError) {
+              console.error("Failed to create user profile:", setupError);
+              throw new Error("Failed to create user profile. Please try registering again.");
             }
-
-            // Insert user profile
-            const { data: insertedUser, error: insertError } = await supabase
-              .from("users")
-              .insert({
-                id: authData.user.id,
-                email: authData.user.email!,
-                algorand_address: wallet.address,
-                encrypted_seed: encryptedSeed || wallet.mnemonic,
-              })
-              .select()
-              .single();
-            if (insertError) throw insertError;
-            userData = insertedUser;
           } else if (userError) {
             throw userError;
+          }
+
+          if (!finalUserData) {
+            throw new Error("No user profile found. Please contact support or try registering again.");
           }
 
           // 4. Decrypt wallet seed
@@ -166,30 +194,39 @@ export const useAuthStore = create<AuthState>()(
           try {
             const { data: seed, error: decryptError } = await supabase.rpc(
               "decrypt_seed",
-              { encrypted_seed: userData.encrypted_seed }
+              {
+                encrypted_seed: finalUserData.encrypted_seed,
+              }
             );
             if (decryptError) throw decryptError;
             decryptedSeed = seed;
           } catch (error) {
             console.warn("Seed decryption failed, using as-is:", error);
-            decryptedSeed = userData.encrypted_seed;
+            decryptedSeed = finalUserData.encrypted_seed;
           }
 
           // 5. Restore wallet
           const wallet = algorandService.restoreWallet(decryptedSeed);
 
           // 6. Initialize RevenueCat and check Pro status
-          await revenueCatService.initialize(authData.user.id);
-          const isPro = await revenueCatService.isProUser();
+          try {
+            if (authData.user) {
+              await revenueCatService.initialize(authData.user.id);
+              const isPro = await revenueCatService.isProUser();
+            }
+          } catch (rcError) {
+            console.warn("RevenueCat initialization failed:", rcError);
+            // Don't fail signin if RevenueCat fails
+          }
 
           // 7. Set state
           set({
             user: {
-              id: userData.id,
-              email: userData.email,
-              algorandAddress: userData.algorand_address,
-              isPro: isPro || userData.is_pro,
-              createdAt: userData.created_at,
+              id: finalUserData.id,
+              email: finalUserData.email,
+              algorandAddress: finalUserData.algorand_address,
+              isPro: finalUserData.is_pro || false,
+              createdAt: finalUserData.created_at,
             },
             wallet,
             isAuthenticated: true,

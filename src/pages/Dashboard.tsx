@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Wallet, Send, QrCode, History, TrendingUp, Crown } from 'lucide-react'
+import { Wallet, Send, QrCode, History, TrendingUp, Crown, RefreshCw, Bell } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { VoiceButton } from '../components/VoiceButton'
@@ -21,12 +21,19 @@ export function Dashboard() {
     balanceUsd, 
     fetchTransactions, 
     fetchBalance,
-    sendPayment 
+    sendPayment,
+    startRealtimeUpdates,
+    stopRealtimeUpdates,
+    startPolling,
+    stopPolling,
+    isLoading
   } = useTransactionStore()
   const { toast } = useToast()
   
   const [showPaywall, setShowPaywall] = useState(false)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+  const [lastTransactionCount, setLastTransactionCount] = useState(0)
+  const [newReceivedCount, setNewReceivedCount] = useState(0)
 
   useEffect(() => {
     if (!user) {
@@ -37,8 +44,67 @@ export function Dashboard() {
     if (user && wallet) {
       fetchTransactions(user.id)
       fetchBalance(wallet.address)
+      
+      // Start real-time updates
+      startRealtimeUpdates(user.id)
+      
+      // Also start polling as a fallback (every 10 seconds)
+      startPolling(user.id, wallet.address)
     }
-  }, [user, wallet, navigate, fetchTransactions, fetchBalance])
+
+    // Cleanup function
+    return () => {
+      stopRealtimeUpdates()
+      stopPolling()
+    }
+  }, [user, wallet, navigate, fetchTransactions, fetchBalance, startRealtimeUpdates, stopRealtimeUpdates, startPolling, stopPolling])
+
+  // Check for new transactions and show notifications
+  useEffect(() => {
+    console.log('Transaction count check:', { 
+      current: transactions.length, 
+      last: lastTransactionCount,
+      newReceivedCount 
+    })
+    
+    if (transactions.length > lastTransactionCount && lastTransactionCount > 0) {
+      const newTransactions = transactions.slice(0, transactions.length - lastTransactionCount)
+      console.log('New transactions detected:', newTransactions)
+      
+      const receivedTransactions = newTransactions.filter(tx => tx.type === 'receive')
+      console.log('Received transactions:', receivedTransactions)
+      
+      if (receivedTransactions.length > 0) {
+        setNewReceivedCount(prev => prev + receivedTransactions.length)
+        console.log('Updated new received count:', newReceivedCount + receivedTransactions.length)
+      }
+      
+      receivedTransactions.forEach(tx => {
+        console.log('Showing notification for received transaction:', tx)
+        toast({
+          title: "Payment Received! 💰",
+          description: `You received ${formatCurrency(tx.amountUsd)} from ${formatAddress(tx.senderAddress)}`,
+        })
+        
+        // Voice notification
+        voiceService.speak(`You received ${formatCurrency(tx.amountUsd)}!`)
+      })
+    }
+    
+    setLastTransactionCount(transactions.length)
+  }, [transactions, lastTransactionCount, toast, newReceivedCount])
+
+  const handleRefresh = async () => {
+    if (user && wallet) {
+      await fetchTransactions(user.id)
+      await fetchBalance(wallet.address)
+      setNewReceivedCount(0) // Clear notification count
+      toast({
+        title: "Refreshed!",
+        description: "Transaction history and balance updated.",
+      })
+    }
+  }
 
   const handleVoiceCommand = async (command: VoiceCommand) => {
     try {
@@ -97,7 +163,13 @@ export function Dashboard() {
       // In a real app, you'd resolve the recipient name to an address
       const recipientAddress = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
-      const txHash = await sendPayment(recipientAddress, amountUsd, wallet.privateKey, user.id)
+      const txHash = await sendPayment({
+        recipientAddress,
+        amountUsd,
+        privateKey: wallet.privateKey,
+        userId: user.id,
+        senderAddress: wallet.address
+      })
 
       toast({
         title: "Payment Sent!",
@@ -145,10 +217,35 @@ export function Dashboard() {
             )}
           </p>
         </div>
-        <VoiceButton 
-          onCommand={handleVoiceCommand}
-          disabled={isProcessingPayment}
-        />
+        <div className="flex items-center space-x-2">
+          {newReceivedCount > 0 && (
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={isLoading}
+              >
+                <Bell className="h-4 w-4" />
+              </Button>
+              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {newReceivedCount}
+              </div>
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <VoiceButton 
+            onCommand={handleVoiceCommand}
+            disabled={isProcessingPayment}
+          />
+        </div>
       </div>
 
       {/* Balance Card */}
@@ -201,9 +298,60 @@ export function Dashboard() {
           className="h-20 flex-col space-y-2"
         >
           <History className="h-6 w-6" />
-          <span>Transaction History</span>
+          <span>History</span>
         </Button>
       </div>
+
+      {/* Transaction History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <History className="h-5 w-5" />
+            <span>Transaction History</span>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-xs text-muted-foreground">Live</span>
+            </div>
+          </CardTitle>
+          <CardDescription>
+            Your most recent transactions (updates automatically)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {transactions.length === 0 ? (
+            <div className="text-muted-foreground text-center py-4">
+              No transactions yet.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="text-left py-2 px-2">Type</th>
+                    <th className="text-left py-2 px-2">Amount (USD)</th>
+                    <th className="text-left py-2 px-2">To/From</th>
+                    <th className="text-left py-2 px-2">Date</th>
+                    <th className="text-left py-2 px-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx) => (
+                    <tr key={tx.id || tx.txHash}>
+                      <td className="py-2 px-2 capitalize">{tx.type}</td>
+                      <td className="py-2 px-2">{formatCurrency(tx.amountUsd)}</td>
+                      <td className="py-2 px-2">
+                        {tx.type === 'send' ? formatAddress(tx.recipientAddress) : formatAddress(tx.senderAddress)}
+                      </td>
+                      <td className="py-2 px-2">{formatDate(new Date(tx.createdAt))}</td>
+                      <td className="py-2 px-2">{tx.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Recent Transactions */}
       <Card>

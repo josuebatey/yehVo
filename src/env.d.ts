@@ -14,3 +14,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Buffer polyfill for browser compatibility
+declare global {
+  interface Window {
+    Buffer: typeof Buffer
+  }
+}

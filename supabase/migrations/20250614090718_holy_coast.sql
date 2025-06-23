@@ -1,5 +1,6 @@
 -- Enable Row Level Security
-ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret-here';
+-- ALTER DATABASE postgres SET "app.jwt_secret" TO '<your-jwt-secret-here>';
+-- Set the JWT secret manually in your deployment environment, not in version control.
 
 -- Create users table
 CREATE TABLE IF NOT EXISTS users (

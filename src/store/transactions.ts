@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import { supabase } from '@/services/supabase'
-import { algorandService } from '@/services/algorand'
+import { supabase } from '../services/supabase'
+import { algorandService } from '../services/algorand'
 
 interface Transaction {
   id: string
@@ -16,18 +16,34 @@ interface Transaction {
   confirmedAt: string | null
 }
 
+interface ISendPayment {
+  recipientAddress: string
+  amountUsd: number
+  privateKey: Uint8Array
+  userId: string
+  senderAddress: string
+}
+
 interface TransactionState {
   transactions: Transaction[]
   balance: number
   balanceUsd: number
   isLoading: boolean
+  wallet: any // Assuming wallet is stored in the state
+  currentUserId: string | null
+  subscription: any | null
+  pollingInterval: NodeJS.Timeout | null
   
   // Actions
   fetchTransactions: (userId: string) => Promise<void>
   fetchBalance: (address: string) => Promise<void>
-  sendPayment: (recipientAddress: string, amountUsd: number, privateKey: Uint8Array, userId: string) => Promise<string>
+  sendPayment: (sendPayment: ISendPayment) => Promise<string>
   addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>
   updateTransactionStatus: (txHash: string, status: Transaction['status']) => Promise<void>
+  startRealtimeUpdates: (userId: string) => void
+  stopRealtimeUpdates: () => void
+  startPolling: (userId: string, address: string) => void
+  stopPolling: () => void
 }
 
 export const useTransactionStore = create<TransactionState>((set, get) => ({
@@ -35,6 +51,10 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   balance: 0,
   balanceUsd: 0,
   isLoading: false,
+  wallet: null,
+  currentUserId: null,
+  subscription: null,
+  pollingInterval: null,
 
   fetchTransactions: async (userId: string) => {
     set({ isLoading: true })
@@ -46,6 +66,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50)
+
+      console.log("Transaction DATA", data);
 
       if (error) throw error
 
@@ -62,6 +84,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         createdAt: tx.created_at,
         confirmedAt: tx.confirmed_at
       }))
+
+      console.log('Fetching transactions for user:', userId);
 
       set({ transactions, isLoading: false })
     } catch (error) {
@@ -82,18 +106,85 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     }
   },
 
-  sendPayment: async (recipientAddress: string, amountUsd: number, privateKey: Uint8Array, userId: string) => {
+  startRealtimeUpdates: (userId: string) => {
+    const { subscription } = get()
+    
+    console.log('Starting real-time updates for user:', userId)
+    
+    // Stop existing subscription if any
+    if (subscription) {
+      console.log('Stopping existing subscription')
+      subscription.unsubscribe()
+    }
+
+    // Start new subscription
+    const newSubscription = supabase
+      .channel('transactions')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          console.log('Real-time transaction update received:', payload)
+          console.log('Payload event type:', payload.eventType)
+          console.log('Payload new record:', payload.new)
+          
+          // Refresh transactions when we get an update
+          get().fetchTransactions(userId)
+          
+          // Also refresh balance if we have a wallet
+          const { wallet } = get()
+          if (wallet?.address) {
+            get().fetchBalance(wallet.address)
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Real-time subscription status:', status)
+      })
+
+    set({ subscription: newSubscription, currentUserId: userId })
+    console.log('Real-time subscription started for user:', userId)
+  },
+
+  stopRealtimeUpdates: () => {
+    const { subscription } = get()
+    if (subscription) {
+      subscription.unsubscribe()
+      set({ subscription: null, currentUserId: null })
+    }
+  },
+
+  startPolling: (userId: string, address: string) => {
+    // Stop existing polling if any
+    get().stopPolling()
+    
+    // Start polling every 10 seconds
+    const interval = setInterval(async () => {
+      await get().fetchTransactions(userId)
+      await get().fetchBalance(address)
+    }, 10000) // 10 seconds
+
+    set({ pollingInterval: interval })
+  },
+
+  stopPolling: () => {
+    const { pollingInterval } = get()
+    if (pollingInterval) {
+      clearInterval(pollingInterval)
+      set({ pollingInterval: null })
+    }
+  },
+
+  sendPayment: async ({recipientAddress, amountUsd, privateKey, userId, senderAddress}: ISendPayment) => {
     try {
       // Convert USD to microAlgos
       const amountMicroAlgos = await algorandService.usdToMicroAlgos(amountUsd)
       
-      // Get sender address
-      const senderAddress = algorandService.restoreWallet(
-        algorandService.restoreWallet(
-          Buffer.from(privateKey).toString('hex')
-        ).mnemonic
-      ).address
-
       // Send transaction
       const txHash = await algorandService.sendPayment(
         privateKey,
@@ -102,8 +193,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         `VoicePay transfer of $${amountUsd}`
       )
 
-      // Store transaction in database
-      const { error } = await supabase
+      // Store transaction in database for sender
+      const { error: senderInsertError } = await supabase
         .from('transactions')
         .insert({
           user_id: userId,
@@ -116,8 +207,43 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
           status: 'confirmed'
         })
 
-      if (error) {
-        console.error('Failed to store transaction:', error)
+      if (senderInsertError) {
+        console.error('Failed to store sender transaction:', senderInsertError)
+      } else {
+        console.log('Sender transaction inserted successfully')
+      }
+
+      // Look up receiver's user ID by Algorand address
+      console.log('Looking up receiver user for address:', recipientAddress)
+      const { data: receiverUser, error: receiverLookupError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('algorand_address', recipientAddress)
+        .maybeSingle();
+      
+      if (receiverLookupError) {
+        console.error('Failed to look up receiver user:', receiverLookupError)
+      } else if (receiverUser && receiverUser.id) {
+        // Store transaction in database for receiver
+        const { error: receiverInsertError } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: receiverUser.id,
+            tx_hash: txHash,
+            amount_micro_algos: amountMicroAlgos,
+            amount_usd: amountUsd,
+            recipient_address: recipientAddress,
+            sender_address: senderAddress,
+            type: 'receive',
+            status: 'confirmed'
+          })
+        if (receiverInsertError) {
+          console.error('Failed to store receiver transaction:', receiverInsertError)
+        } else {
+          console.log('Receiver transaction inserted successfully for user:', receiverUser.id)
+        }
+      } else {
+        console.warn('No receiver user found for address:', recipientAddress, '. The receiver will not see this transaction in their history.')
       }
 
       // Refresh transactions and balance

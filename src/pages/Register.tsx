@@ -53,13 +53,14 @@ export function Register() {
       if (error instanceof Error && error.message === "EMAIL_VERIFICATION_REQUIRED") {
         navigate('/verify-email', { state: { email } })
         return
+      } else {
+        toast({
+          title: "Registration Failed",
+          description: error instanceof Error ? error.message : "Failed to create account",
+          variant: "destructive"
+        })
       }
 
-      toast({
-        title: "Registration Failed",
-        description: error instanceof Error ? error.message : "Failed to create account",
-        variant: "destructive"
-      })
     } finally {
       setIsLoading(false)
     }

@@ -1,5 +1,5 @@
 import algosdk from 'algosdk'
-import { microAlgosToAlgos, algosToMicroAlgos } from '@/lib/utils'
+import { microAlgosToAlgos, algosToMicroAlgos } from '../lib/utils'
 
 const ALGORAND_NODE_URL = import.meta.env.VITE_ALGORAND_NODE_URL || 'https://testnet-api.algonode.cloud'
 const ALGORAND_INDEXER_URL = import.meta.env.VITE_ALGORAND_INDEXER_URL || 'https://testnet-idx.algonode.cloud'
@@ -67,11 +67,13 @@ class AlgorandService {
    */
   async getBalance(address: string): Promise<number> {
     try {
-      const accountInfo = await this.algodClient.accountInformation(address).do()
-      return accountInfo.amount
+      console.log('Fetching balance for address:', address);
+      const accountInfo = await this.algodClient.accountInformation(address).do();
+      console.log('Fetched account info:', accountInfo);
+      return accountInfo.amount;
     } catch (error) {
-      console.error('Error getting balance:', error)
-      return 0
+      console.error('Error getting balance:', error);
+      return 0;
     }
   }
 
@@ -162,6 +164,8 @@ class AlgorandService {
         .limit(limit)
         .do()
 
+        console.log("RESPONSE", response);
+
       return response.transactions.map((tx: any) => ({
         txHash: tx.id,
         amount: microAlgosToAlgos(tx['payment-transaction']?.amount || 0),
@@ -181,10 +185,21 @@ class AlgorandService {
    * Get current Algorand price in USD
    */
   async getAlgorandPrice(): Promise<AlgorandPrice> {
+    // MOCKED: Always return a fixed price for development
+    console.warn('Returning mocked Algorand price');
+    return {
+      usd: 0.20,
+      lastUpdated: Date.now()
+    };
+    /*
+    // Use a public CORS proxy for development
     try {
-      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=algorand&vs_currencies=usd')
-      const data = await response.json()
-      
+      const response = await fetch('https://corsproxy.io/?https://api.coingecko.com/api/v3/simple/price?ids=algorand&vs_currencies=usd');
+      const data = await response.json();
+      if (!data || !data.algorand || typeof data.algorand.usd !== 'number') {
+        console.error('Unexpected Coingecko response:', data);
+        throw new Error('Invalid price data from Coingecko');
+      }
       return {
         usd: data.algorand.usd,
         lastUpdated: Date.now()
@@ -197,6 +212,7 @@ class AlgorandService {
         lastUpdated: Date.now()
       }
     }
+    */
   }
 
   /**
