@@ -23,15 +23,12 @@ export function Login() {
 
     try {
       const user = await signIn(email.trim(), password)
-
-      console.log(user)
       toast({
         title: "Welcome back!",
         description: "You've successfully signed in to VoicePay."
       })
       navigate('/dashboard')
     } catch (error) {
-      console.error("Sign in error:", error)
       toast({
         title: "Sign In Failed",
         description: error instanceof Error ? error.message : "Invalid email or password",

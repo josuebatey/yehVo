@@ -67,12 +67,9 @@ class AlgorandService {
    */
   async getBalance(address: string): Promise<number> {
     try {
-      console.log('Fetching balance for address:', address);
       const accountInfo = await this.algodClient.accountInformation(address).do();
-      console.log('Fetched account info:', accountInfo);
       return accountInfo.amount;
     } catch (error) {
-      console.error('Error getting balance:', error);
       return 0;
     }
   }
@@ -122,7 +119,6 @@ class AlgorandService {
 
       return txId
     } catch (error) {
-      console.error('Error sending payment:', error)
       throw new Error('Failed to send payment')
     }
   }
@@ -145,7 +141,6 @@ class AlgorandService {
         lastRound++
         await this.algodClient.statusAfterBlock(lastRound).do()
       } catch (error) {
-        console.error('Error waiting for confirmation:', error)
         throw new Error('Transaction confirmation timeout')
       }
     }
@@ -164,8 +159,6 @@ class AlgorandService {
         .limit(limit)
         .do()
 
-        console.log("RESPONSE", response);
-
       return response.transactions.map((tx: any) => ({
         txHash: tx.id,
         amount: microAlgosToAlgos(tx['payment-transaction']?.amount || 0),
@@ -176,7 +169,6 @@ class AlgorandService {
         status: 'confirmed'
       }))
     } catch (error) {
-      console.error('Error getting transaction history:', error)
       return []
     }
   }
@@ -186,7 +178,6 @@ class AlgorandService {
    */
   async getAlgorandPrice(): Promise<AlgorandPrice> {
     // MOCKED: Always return a fixed price for development
-    console.warn('Returning mocked Algorand price');
     return {
       usd: 0.20,
       lastUpdated: Date.now()

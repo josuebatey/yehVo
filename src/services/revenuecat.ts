@@ -105,7 +105,6 @@ class RevenueCatService {
 
       // Note: This is a simplified implementation
       // In a real app, you'd need to handle the actual purchase flow
-      console.log(`Would purchase package: ${packageIdentifier}`);
       return false; // For now, return false as this needs proper implementation
     } catch (error) {
       console.error("Failed to purchase package:", error);
@@ -115,14 +114,11 @@ class RevenueCatService {
 
   async restorePurchases(): Promise<boolean> {
     if (!this.isInitialized) throw new Error("RevenueCat not initialized");
-
     try {
       // Note: restorePurchases() method might not exist in the current version
       // This is a simplified implementation
-      console.log("Would restore purchases");
       return false; // For now, return false as this needs proper implementation
     } catch (error) {
-      console.error("Failed to restore purchases:", error);
       return false;
     }
   }

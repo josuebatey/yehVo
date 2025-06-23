@@ -61,36 +61,20 @@ export function Dashboard() {
 
   // Check for new transactions and show notifications
   useEffect(() => {
-    console.log('Transaction count check:', { 
-      current: transactions.length, 
-      last: lastTransactionCount,
-      newReceivedCount 
-    })
-    
     if (transactions.length > lastTransactionCount && lastTransactionCount > 0) {
       const newTransactions = transactions.slice(0, transactions.length - lastTransactionCount)
-      console.log('New transactions detected:', newTransactions)
-      
       const receivedTransactions = newTransactions.filter(tx => tx.type === 'receive')
-      console.log('Received transactions:', receivedTransactions)
-      
       if (receivedTransactions.length > 0) {
         setNewReceivedCount(prev => prev + receivedTransactions.length)
-        console.log('Updated new received count:', newReceivedCount + receivedTransactions.length)
       }
-      
       receivedTransactions.forEach(tx => {
-        console.log('Showing notification for received transaction:', tx)
         toast({
           title: "Payment Received! 💰",
           description: `You received ${formatCurrency(tx.amountUsd)} from ${formatAddress(tx.senderAddress)}`,
         })
-        
-        // Voice notification
         voiceService.speak(`You received ${formatCurrency(tx.amountUsd)}!`)
       })
     }
-    
     setLastTransactionCount(transactions.length)
   }, [transactions, lastTransactionCount, toast, newReceivedCount])
 

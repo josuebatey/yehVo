@@ -67,8 +67,6 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         .order('created_at', { ascending: false })
         .limit(50)
 
-      console.log("Transaction DATA", data);
-
       if (error) throw error
 
       const transactions: Transaction[] = data.map(tx => ({
@@ -85,11 +83,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         confirmedAt: tx.confirmed_at
       }))
 
-      console.log('Fetching transactions for user:', userId);
-
       set({ transactions, isLoading: false })
     } catch (error) {
-      console.error('Failed to fetch transactions:', error)
       set({ isLoading: false })
     }
   },
@@ -102,18 +97,14 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
       set({ balance, balanceUsd })
     } catch (error) {
-      console.error('Failed to fetch balance:', error)
     }
   },
 
   startRealtimeUpdates: (userId: string) => {
     const { subscription } = get()
     
-    console.log('Starting real-time updates for user:', userId)
-    
     // Stop existing subscription if any
     if (subscription) {
-      console.log('Stopping existing subscription')
       subscription.unsubscribe()
     }
 
@@ -129,10 +120,6 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
-          console.log('Real-time transaction update received:', payload)
-          console.log('Payload event type:', payload.eventType)
-          console.log('Payload new record:', payload.new)
-          
           // Refresh transactions when we get an update
           get().fetchTransactions(userId)
           
@@ -144,11 +131,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         }
       )
       .subscribe((status) => {
-        console.log('Real-time subscription status:', status)
       })
 
     set({ subscription: newSubscription, currentUserId: userId })
-    console.log('Real-time subscription started for user:', userId)
   },
 
   stopRealtimeUpdates: () => {
@@ -194,7 +179,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       )
 
       // Store transaction in database for sender
-      const { error: senderInsertError } = await supabase
+      await supabase
         .from('transactions')
         .insert({
           user_id: userId,
@@ -207,25 +192,14 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
           status: 'confirmed'
         })
 
-      if (senderInsertError) {
-        console.error('Failed to store sender transaction:', senderInsertError)
-      } else {
-        console.log('Sender transaction inserted successfully')
-      }
-
       // Look up receiver's user ID by Algorand address
-      console.log('Looking up receiver user for address:', recipientAddress)
-      const { data: receiverUser, error: receiverLookupError } = await supabase
+      const { data: receiverUser } = await supabase
         .from('users')
         .select('id')
         .eq('algorand_address', recipientAddress)
         .maybeSingle();
-      
-      if (receiverLookupError) {
-        console.error('Failed to look up receiver user:', receiverLookupError)
-      } else if (receiverUser && receiverUser.id) {
-        // Store transaction in database for receiver
-        const { error: receiverInsertError } = await supabase
+      if (receiverUser && receiverUser.id) {
+        await supabase
           .from('transactions')
           .insert({
             user_id: receiverUser.id,
@@ -237,13 +211,6 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
             type: 'receive',
             status: 'confirmed'
           })
-        if (receiverInsertError) {
-          console.error('Failed to store receiver transaction:', receiverInsertError)
-        } else {
-          console.log('Receiver transaction inserted successfully for user:', receiverUser.id)
-        }
-      } else {
-        console.warn('No receiver user found for address:', recipientAddress, '. The receiver will not see this transaction in their history.')
       }
 
       // Refresh transactions and balance
@@ -252,7 +219,6 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
       return txHash
     } catch (error) {
-      console.error('Payment failed:', error)
       throw error
     }
   },
@@ -277,7 +243,6 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       // Refresh transactions
       await get().fetchTransactions(transaction.userId)
     } catch (error) {
-      console.error('Failed to add transaction:', error)
       throw error
     }
   },
@@ -303,7 +268,6 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         )
       }))
     } catch (error) {
-      console.error('Failed to update transaction status:', error)
       throw error
     }
   }
