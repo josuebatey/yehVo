@@ -9,6 +9,7 @@ import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
 import { Receive } from './pages/Receive'
 import { Send } from './pages/Send'
+import { History } from './pages/History'
 import { useAuthStore } from './store/auth'
 import { useTheme } from './hooks/use-theme'
 import { VerifyEmail } from './pages/VerifyEmail'
@@ -71,6 +72,10 @@ function App() {
               <Route 
                 path="send" 
                 element={isAuthenticated ? <Send /> : <Navigate to="/login" replace />} 
+              />
+              <Route 
+                path="history" 
+                element={isAuthenticated ? <History /> : <Navigate to="/login" replace />} 
               />
               <Route path="verify-email" element={<VerifyEmail />} />
             </Route>
