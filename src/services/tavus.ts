@@ -1,3 +1,5 @@
+import { Transaction } from "../services/algorand"
+
 interface TavusConversation {
   conversationId: string
   status: 'active' | 'ended'
@@ -115,13 +117,13 @@ class TavusService {
     if (lowerQuery.includes('spend') || lowerQuery.includes('spent')) {
       const totalSpent = recentTransactions
         .filter(tx => tx.type === 'send')
-        .reduce((sum, tx) => sum + tx.amount_usd, 0)
+        .reduce((sum, tx) => sum + tx.amountUsd, 0)
 
       if (lowerQuery.includes('week')) {
         const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
         const weeklySpent = recentTransactions
-          .filter(tx => tx.type === 'send' && new Date(tx.created_at).getTime() > weekAgo)
-          .reduce((sum, tx) => sum + tx.amount_usd, 0)
+          .filter(tx => tx.type === 'send' && new Date(tx.createdAt).getTime() > weekAgo)
+          .reduce((sum, tx) => sum + tx.amountUsd, 0)
         
         return `You've spent $${weeklySpent.toFixed(2)} this week. ${weeklySpent > 50 ? 'Consider tracking your expenses more closely.' : 'Great job staying within budget!'}`
       }
@@ -131,7 +133,7 @@ class TavusService {
 
     if (lowerQuery.includes('transaction') || lowerQuery.includes('payment')) {
       const recentCount = recentTransactions.length
-      return `You have ${recentCount} recent transactions. Your most recent was ${recentTransactions[0] ? `a ${recentTransactions[0].type} of $${recentTransactions[0].amount_usd.toFixed(2)}` : 'none yet'}.`
+      return `You have ${recentCount} recent transactions. Your most recent was ${recentTransactions[0] ? `a ${recentTransactions[0].type} of $${recentTransactions[0].amountUsd.toFixed(2)}` : 'none yet'}.`
     }
 
     return "I can help you with questions about your balance, spending, and transaction history. What would you like to know?"
