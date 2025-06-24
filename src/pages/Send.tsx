@@ -21,9 +21,15 @@ export function Send() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { sendPayment } = useTransactionStore()
 
+  // Utility to check if Algorand account exists (dev: allow any non-empty string)
+  async function checkAlgorandAccountExists(address: string): Promise<boolean> {
+    // For development, allow any non-empty string
+    return !!address && address.length > 0
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!recipientAddress.trim()) {
       toast({
         title: "Recipient Required",
@@ -44,6 +50,18 @@ export function Send() {
 
     setIsLoading(true)
 
+    // Check if recipient exists
+    const exists = await checkAlgorandAccountExists(recipientAddress)
+    if (!exists) {
+      toast({
+        title: "Recipient Not Found",
+        description: "Recipient address does not exist.",
+        variant: "destructive"
+      })
+      setIsLoading(false)
+      return
+    }
+
     // Ensure wallet and user are not null
     if (!wallet || !user) {
       toast({
@@ -63,13 +81,10 @@ export function Send() {
         userId: user.id,
         senderAddress: wallet.address
       })
-
       toast({
         title: "Payment Sent!",
         description: `Successfully sent $${amount} to ${recipientAddress.slice(0, 8)}...${recipientAddress.slice(-8)}`
       })
-
-      // Reset form
       setRecipientAddress('')
       setAmount('')
     } catch (error) {
@@ -177,105 +192,107 @@ export function Send() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="icon" asChild>
-              <Link to="/dashboard">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <div>
-              <CardTitle className="text-2xl">Send Money</CardTitle>
-              <CardDescription>
-                Transfer funds to another Algorand wallet
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="recipient" className="text-sm font-medium">
-                Recipient Address
-              </label>
-              <div className="flex space-x-2">
-                <Input
-                  id="recipient"
-                  type="text"
-                  value={recipientAddress}
-                  onChange={(e) => setRecipientAddress(e.target.value)}
-                  placeholder="Enter Algorand wallet address"
-                  required
-                  disabled={isLoading}
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={startQRScanner}
-                  disabled={isLoading}
-                >
-                  <Camera className="h-4 w-4" />
-                </Button>
+    <>
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <div className="flex items-center space-x-2">
+              <Button variant="ghost" size="icon" asChild>
+                <Link to="/dashboard">
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </Button>
+              <div>
+                <CardTitle className="text-2xl">Send Money</CardTitle>
+                <CardDescription>
+                  Transfer funds to another Algorand wallet
+                </CardDescription>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <label htmlFor="amount" className="text-sm font-medium">
-                Amount (USD)
-              </label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                required
-                disabled={isLoading}
-              />
-            </div>
-
-            {wallet && (
-              <div className="p-3 bg-muted rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <Wallet className="h-4 w-4" />
-                    <span>From: {wallet.address.slice(0, 8)}...{wallet.address.slice(-8)}</span>
-                  </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="recipient" className="text-sm font-medium">
+                  Recipient Address
+                </label>
+                <div className="flex space-x-2">
+                  <Input
+                    id="recipient"
+                    type="text"
+                    value={recipientAddress}
+                    onChange={(e) => setRecipientAddress(e.target.value)}
+                    placeholder="Enter Algorand wallet address"
+                    required
+                    disabled={isLoading}
+                    className="flex-1"
+                  />
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="icon"
-                    onClick={generateQRCode}
-                    className="h-6 w-6"
+                    onClick={startQRScanner}
+                    disabled={isLoading}
                   >
-                    <QrCode className="h-4 w-4" />
+                    <Camera className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-            )}
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <SendIcon className="mr-2 h-4 w-4" />
-                  Send Payment
-                </>
+              <div className="space-y-2">
+                <label htmlFor="amount" className="text-sm font-medium">
+                  Amount (USD)
+                </label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+
+              {wallet && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                      <Wallet className="h-4 w-4" />
+                      <span>From: {wallet.address.slice(0, 8)}...{wallet.address.slice(-8)}</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={generateQRCode}
+                      className="h-6 w-6"
+                    >
+                      <QrCode className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <SendIcon className="mr-2 h-4 w-4" />
+                    Send Payment
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* QR Scanner Modal */}
       {showQRScanner && (
@@ -347,6 +364,6 @@ export function Send() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 } 

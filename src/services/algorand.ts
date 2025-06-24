@@ -1,8 +1,8 @@
 import algosdk from 'algosdk'
 import { microAlgosToAlgos, algosToMicroAlgos } from '../lib/utils'
 
-const ALGORAND_NODE_URL = import.meta.env.VITE_ALGORAND_NODE_URL || 'https://testnet-api.algonode.cloud'
-const ALGORAND_INDEXER_URL = import.meta.env.VITE_ALGORAND_INDEXER_URL || 'https://testnet-idx.algonode.cloud'
+const ALGORAND_NODE_URL = import.meta.env.VITE_ALGORAND_NODE_URL
+const ALGORAND_INDEXER_URL = import.meta.env.VITE_ALGORAND_INDEXER_URL
 const ALGORAND_NODE_TOKEN = import.meta.env.VITE_ALGORAND_NODE_TOKEN || ''
 
 export interface AlgorandWallet {

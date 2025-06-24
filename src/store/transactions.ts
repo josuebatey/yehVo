@@ -193,13 +193,18 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         })
 
       // Look up receiver's user ID by Algorand address
-      const { data: receiverUser } = await supabase
+      const { data: receiverUser, error: receiverError } = await supabase
         .from('users')
         .select('id')
         .eq('algorand_address', recipientAddress)
         .maybeSingle();
+
+      // Debug: check what is returned for receiverUser and error
+      console.log('receiverUser', receiverUser, 'receiverError', receiverError);
+
+      // If the receiver is a registered user, insert a transaction for them as well
       if (receiverUser && receiverUser.id) {
-        await supabase
+        const { error: insertError } = await supabase
           .from('transactions')
           .insert({
             user_id: receiverUser.id,
@@ -211,6 +216,12 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
             type: 'receive',
             status: 'confirmed'
           })
+        // If there is an error inserting for the receiver, log it for debugging
+        if (insertError) {
+          console.error('Error inserting receiver transaction:', insertError)
+        }
+      } else {
+        console.warn('No receiver user found for address:', recipientAddress)
       }
 
       // Refresh transactions and balance
