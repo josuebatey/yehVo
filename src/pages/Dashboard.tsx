@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Wallet, Send, QrCode, History, TrendingUp, Crown, RefreshCw, Bell } from 'lucide-react'
+import { Wallet, Send, QrCode, History, TrendingUp, Crown, RefreshCw, Bell, Copy } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { VoiceButton } from '../components/VoiceButton'
@@ -11,6 +11,7 @@ import { useTransactionStore } from '../store/transactions'
 import { voiceService, type VoiceCommand } from '../services/voice'
 import { formatCurrency, formatDate, formatAddress } from '../lib/utils'
 import { useToast } from '../hooks/use-toast'
+import { QuickActionsPill } from '../components/QuickActionsPill'
 
 export function Dashboard() {
   const navigate = useNavigate()
@@ -232,110 +233,76 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Balance Card */}
-      <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Wallet className="h-5 w-5" />
-            <span>Your Balance</span>
-          </CardTitle>
-          <CardDescription className="text-primary-foreground/80">
-            {formatAddress(wallet.address)}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="text-3xl font-bold">{formatCurrency(balanceUsd)}</div>
-            <div className="text-sm text-primary-foreground/80">
-              {balance.toFixed(6)} ALGO
+      {/* Balance Card as Golden Debit Card */}
+      <div className="w-full flex justify-center ">
+        <div
+          className=" relative w-full max-w-md aspect-[16/9] rounded-2xl shadow-xl flex flex-col justify-between p-4 sm:p-6 sm:pb-10 bg-gradient-to-br from-yellow-400 via-yellow-300 to-yellow-600 dark:from-yellow-500 dark:via-yellow-400 dark:to-yellow-700 text-yellow-900 dark:text-yellow-900 min-w-0"
+          style={{ backgroundImage: 'linear-gradient(135deg, #FFD700 0%, #FFF7AE 60%, #B8860B 100%)' }}
+        >
+          {/* Motif: subtle lines or watermark */}
+          <svg className="absolute inset-0 w-full h-full opacity-10 pointer-events-none" viewBox="0 0 400 225" fill="none">
+            <defs>
+              <linearGradient id="goldLines" x1="0" y1="0" x2="400" y2="225" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#fff" stopOpacity="0.2" />
+                <stop offset="1" stopColor="#fff" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="400" height="225" fill="url(#goldLines)" />
+            <path d="M20 40 Q200 100 380 40" stroke="#fff" strokeOpacity="0.15" strokeWidth="8" fill="none" />
+            <circle cx="320" cy="180" r="40" fill="#fff" fillOpacity="0.07" />
+          </svg>
+          {/* Top Row: Chip/Icon and Badge */}
+          <div className="flex items-center justify-between z-10 ">
+            {/* Chip Icon */}
+            <div className="flex items-center">
+              <svg width="36" height="24" viewBox="0 0 36 24" fill="none" className="mr-2">
+                <rect x="2" y="4" width="32" height="16" rx="4" fill="#fff" fillOpacity="0.7" />
+                <rect x="8" y="8" width="20" height="8" rx="2" fill="#FFD700" fillOpacity="0.7" />
+              </svg>
+              <span className="font-semibold text-lg tracking-wide">VoicePay</span>
             </div>
+            {/* Debit Badge */}
+            <span className="px-3 py-1 rounded-full bg-yellow-900/80 text-yellow-100 text-xs font-bold tracking-widest shadow">DEBIT</span>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={() => navigate('/send')}
-          className="h-20 flex-col space-y-2"
-        >
-          <Send className="h-6 w-6" />
-          <span>Send Money</span>
-        </Button>
-        
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={() => navigate('/receive')}
-          className="h-20 flex-col space-y-2"
-        >
-          <QrCode className="h-6 w-6" />
-          <span>Receive Money</span>
-        </Button>
-        
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={() => navigate('/history')}
-          className="h-20 flex-col space-y-2"
-        >
-          <History className="h-6 w-6" />
-          <span>History</span>
-        </Button>
+          {/* Center: Balance */}
+          <div className="flex-1 flex flex-col justify-center items-start z-10 mt-6 mb-2 ">
+            <div className="text-4xl font-extrabold tracking-tight mb-1 drop-shadow-sm">{formatCurrency(balanceUsd)}</div>
+            <div className="text-base font-medium text-yellow-900/80 dark:text-yellow-900/90 mb-2">{balance.toFixed(6)} ALGO</div>
+          </div>
+          {/* Bottom: Card Number (wallet address) */}
+          <div className="flex items-center justify-between z-10 min-w-0">
+            <div className="flex flex-col min-w-0 flex-1">
+              <div className="flex items-center min-w-0">
+                <span className="text-xs font-mono tracking-widest text-yellow-900/70 dark:text-yellow-900/80 break-all min-w-0">
+                  {formatAddress(wallet.address)}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="p-1 text-yellow-900/70 hover:text-yellow-900/100"
+                  aria-label="Copy address"
+                  onClick={async () => {
+                    if (wallet?.address) {
+                      await navigator.clipboard.writeText(wallet.address)
+                      toast({
+                        title: 'Address Copied',
+                        description: 'Your Algorand address has been copied to clipboard.'
+                      })
+                    }
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <span className="text-xs text-yellow-900/60 break-words">Card Number</span>
+            </div>
+            <Wallet className="h-7 w-7 text-yellow-900/80 flex-shrink-0" />
+          </div>
+        </div>
       </div>
 
-      {/* Transaction History */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <History className="h-5 w-5" />
-            <span>Transaction History</span>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-xs text-muted-foreground">Live</span>
-            </div>
-          </CardTitle>
-          <CardDescription>
-            Your most recent transactions (updates automatically)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {transactions.length === 0 ? (
-            <div className="text-muted-foreground text-center py-4">
-              No transactions yet.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr>
-                    <th className="text-left py-2 px-2">Type</th>
-                    <th className="text-left py-2 px-2">Amount (USD)</th>
-                    <th className="text-left py-2 px-2">To/From</th>
-                    <th className="text-left py-2 px-2">Date</th>
-                    <th className="text-left py-2 px-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((tx) => (
-                    <tr key={tx.id || tx.txHash}>
-                      <td className="py-2 px-2 capitalize">{tx.type}</td>
-                      <td className="py-2 px-2">{formatCurrency(tx.amountUsd)}</td>
-                      <td className="py-2 px-2">
-                        {tx.type === 'send' ? formatAddress(tx.recipientAddress) : formatAddress(tx.senderAddress)}
-                      </td>
-                      <td className="py-2 px-2">{formatDate(new Date(tx.createdAt))}</td>
-                      <td className="py-2 px-2">{tx.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Quick Actions */}
+      <QuickActionsPill className="mb-8" />
 
       {/* Recent Transactions */}
       <Card>
