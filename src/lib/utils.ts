@@ -14,7 +14,8 @@ export function formatCurrency(amount: number, currency = 'USD'): string {
   }).format(amount)
 }
 
-export function formatAddress(address: string): string {
+export function formatAddress(address: string | null | undefined): string {
+  if (!address || typeof address !== 'string') return ''
   if (address.length <= 10) return address
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
