@@ -3,6 +3,7 @@ import { Copy, QrCode, Volume2, ArrowLeft } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 import { useAuthStore } from '../store/auth'
 import { voiceService } from '../services/voice'
 import { formatAddress } from '../lib/utils'
@@ -11,21 +12,20 @@ import { Link } from 'react-router-dom'
 import QRCode from 'qrcode'
 
 export function Receive() {
-  const { user, wallet } = useAuthStore()
+  const { user, wallet, isLoading: authLoading } = useAuthStore()
   const { toast } = useToast()
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [isSpeaking, setIsSpeaking] = useState(false)
 
-  // Debug logging
-  console.log('Receive - User:', user)
-  console.log('Receive - Wallet:', wallet)
-  console.log('Receive - Wallet address:', wallet?.address)
+  // Check if we have valid data
+  const hasValidWallet = wallet && wallet.address && typeof wallet.address === 'string' && wallet.address.length > 0
+  const hasValidUser = user && user.id && typeof user.id === 'string'
 
   useEffect(() => {
-    if (wallet?.address) {
+    if (hasValidWallet) {
       generateQRCode(wallet.address)
     }
-  }, [wallet?.address])
+  }, [hasValidWallet, wallet?.address])
 
   const generateQRCode = async (address: string) => {
     try {
@@ -44,7 +44,7 @@ export function Receive() {
   }
 
   const handleCopyAddress = async () => {
-    if (!wallet?.address) {
+    if (!hasValidWallet) {
       toast({
         title: "No Address",
         description: "Wallet address is not available.",
@@ -69,7 +69,7 @@ export function Receive() {
   }
 
   const handleSpeakAddress = async () => {
-    if (!wallet?.address || isSpeaking) return
+    if (!hasValidWallet || isSpeaking) return
 
     setIsSpeaking(true)
     try {
@@ -90,40 +90,39 @@ export function Receive() {
     }
   }
 
-  if (!user || !wallet) {
+  // Show loading state while auth is loading
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading your wallet...</p>
-          <div className="mt-4 p-4 bg-muted rounded-lg">
-            <p className="text-sm">Debug Info:</p>
-            <p className="text-xs font-mono">User: {user ? 'exists' : 'null'}</p>
-            <p className="text-xs font-mono">Wallet: {wallet ? 'exists' : 'null'}</p>
-            <p className="text-xs font-mono">Address: {String(wallet?.address || 'none')}</p>
-          </div>
+        <LoadingSpinner size="lg" text="Loading your wallet..." />
+      </div>
+    )
+  }
+
+  // Show error state if user is missing
+  if (!hasValidUser) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <p className="text-lg font-semibold">Authentication Required</p>
+          <p className="text-muted-foreground">Please log in to access your receive page.</p>
+          <Button onClick={() => window.location.href = '/login'}>
+            Go to Login
+          </Button>
         </div>
       </div>
     )
   }
 
-  // Check if wallet has a valid address
-  if (!wallet.address || typeof wallet.address !== 'string' || wallet.address.length === 0) {
+  // Show loading state if wallet is missing but user exists
+  if (!hasValidWallet) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4">
-          <p className="text-lg font-semibold">Wallet Address Not Available</p>
-          <p className="text-muted-foreground">Your wallet address could not be loaded.</p>
-          <div className="p-4 bg-muted rounded-lg">
-            <p className="text-sm">Debug Info:</p>
-            <p className="text-xs font-mono">Wallet exists: {wallet ? 'yes' : 'no'}</p>
-            <p className="text-xs font-mono">Address: {String(wallet?.address || 'undefined')}</p>
-            <p className="text-xs font-mono">Address type: {typeof wallet?.address}</p>
-            <p className="text-xs font-mono">Address length: {wallet?.address?.length || 0}</p>
-          </div>
-          <Button onClick={() => window.location.reload()}>
-            Reload Page
-          </Button>
+          <LoadingSpinner size="lg" text="Loading your wallet..." />
+          <p className="text-sm text-muted-foreground">
+            Setting up your Algorand wallet...
+          </p>
         </div>
       </div>
     )
