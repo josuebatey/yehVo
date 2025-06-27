@@ -24,6 +24,7 @@ export function Dashboard() {
   // Debug logging to understand the wallet state
   console.log('Dashboard - User:', user)
   console.log('Dashboard - Wallet:', wallet)
+  console.log('Dashboard - Wallet type:', typeof wallet)
   console.log('Dashboard - Wallet address:', wallet?.address)
 
   const { 
@@ -55,7 +56,7 @@ export function Dashboard() {
       return
     }
 
-    if (user && wallet) {
+    if (user && wallet && wallet.address) {
       fetchTransactions(user.id)
       fetchBalance(wallet.address)
       
@@ -93,7 +94,7 @@ export function Dashboard() {
   }, [transactions, lastTransactionCount, toast, newReceivedCount])
 
   const handleRefresh = async () => {
-    if (user && wallet) {
+    if (user && wallet && wallet.address) {
       await fetchTransactions(user.id)
       await fetchBalance(wallet.address)
       setNewReceivedCount(0) // Clear notification count
