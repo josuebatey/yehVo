@@ -302,7 +302,7 @@ export function Dashboard() {
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center min-w-0">
                 <span className="border text-xs font-mono tracking-widest text-yellow-900/70 dark:text-yellow-900/80 break-all min-w-0">
-                  {wallet?.address ? formatAddress(wallet.address) : 'Loading...'}
+                  {wallet?.address ? formatAddress(wallet.address) : 'Loading...'}#
                 </span>
                 <Button
                   variant="ghost"
