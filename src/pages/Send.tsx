@@ -23,6 +23,9 @@ export function Send() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { sendPayment } = useTransactionStore()
 
+  // Use user.algorandAddress as the primary source of truth
+  const walletAddress = user?.algorandAddress || wallet?.address
+
   // Utility function to safely format address
   const safeFormatAddress = (address: string | undefined | null): string => {
     if (!address || typeof address !== 'string' || address.length < 16) {
@@ -77,7 +80,7 @@ export function Send() {
     }
 
     // Ensure wallet and user are not null
-    if (!wallet || !user) {
+    if (!wallet || !user || !walletAddress) {
       toast({
         title: "Wallet or User Missing",
         description: "Please make sure you are logged in and your wallet is loaded.",
@@ -94,7 +97,7 @@ export function Send() {
         amountUsd: parseFloat(amount),
         privateKey: wallet.privateKey,
         userId: user.id,
-        senderAddress: wallet.address
+        senderAddress: walletAddress
       })
 
       toast({
@@ -196,7 +199,7 @@ export function Send() {
   }
 
   const generateQRCode = () => {
-    if (!wallet?.address) {
+    if (!walletAddress) {
       toast({
         title: "No Wallet",
         description: "Please ensure your wallet is loaded.",
@@ -280,12 +283,12 @@ export function Send() {
                 />
               </div>
 
-              {wallet && (
+              {walletAddress && (
                 <div className="p-3 bg-muted rounded-lg">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                       <Wallet className="h-4 w-4" />
-                      <span>From: {safeFormatAddress(wallet.address)}</span>
+                      <span>From: {safeFormatAddress(walletAddress)}</span>
                     </div>
                     <Button
                       type="button"
@@ -358,7 +361,7 @@ export function Send() {
       )}
 
       {/* QR Code Display Modal */}
-      {showQRCode && wallet && (
+      {showQRCode && walletAddress && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
             <div className="flex items-center justify-between mb-4">
@@ -377,7 +380,7 @@ export function Send() {
                   <QrCode className="h-16 w-16 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-500">QR Code Placeholder</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    {safeFormatAddress(wallet.address)}
+                    {safeFormatAddress(walletAddress)}
                   </p>
                 </div>
               </div>
