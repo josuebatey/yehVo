@@ -114,6 +114,8 @@ class AlgorandService {
         throw new Error('Amount must be a positive number')
       }
 
+      console.info(recipientAddress)
+
       // Clean addresses
       const cleanSenderAddress = senderAddress.trim()
       const cleanRecipientAddress = recipientAddress.trim()
