@@ -60,7 +60,7 @@ export default defineConfig({
     global: 'globalThis'
   },
   optimizeDeps: {
-    include: ['buffer'],
+    include: ['buffer', 'json-bigint'],
     exclude: ['algosdk']
   },
   server: {
