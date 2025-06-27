@@ -6,13 +6,23 @@ VoicePay is a revolutionary PWA that enables users to send and receive blockchai
 
 ## 🚀 Features
 
+### Core Functionality
 - **Voice Commands**: Send money using natural language voice commands
 - **Blockchain Security**: Powered by Algorand for fast, secure transactions
 - **AI Assistant**: Tavus video avatar for balance and spending queries
 - **Custodial Wallet**: Automatic wallet creation with encrypted seed storage
-- **Monetization**: RevenueCat integration with Pro upgrade paywall
+- **Real-time Updates**: Live transaction monitoring and notifications
 - **PWA Ready**: Offline-capable Progressive Web App
 - **Mobile First**: Responsive design optimized for mobile devices
+
+### Enhanced Features
+- **Error Boundary**: Graceful error handling with recovery options
+- **Network Status**: Offline detection and user notifications
+- **Voice Visualizer**: Real-time voice input visualization
+- **Transaction Confirmation**: Beautiful confirmation screens
+- **Security Settings**: Comprehensive wallet security management
+- **Performance Monitoring**: Built-in performance tracking
+- **Analytics**: User behavior and error tracking
 
 ## 🛠 Tech Stack
 
@@ -52,10 +62,18 @@ VoicePay is a revolutionary PWA that enables users to send and receive blockchai
 - Seed phrase encrypted with Supabase Vault
 
 ### Dashboard
-- Real-time balance display
-- Last 5 transactions
+- Real-time balance display (golden debit card design)
+- Last 5 transactions with live updates
 - Voice-activated send/receive buttons
 - AI assistant integration
+- Security settings access
+
+### Enhanced Security
+- Seed phrase backup and export
+- Biometric authentication options
+- Auto-lock functionality
+- Recovery options setup
+- Transaction notifications
 
 ### Paywall
 - $10 limit for free users
@@ -66,7 +84,7 @@ VoicePay is a revolutionary PWA that enables users to send and receive blockchai
 
 ### Prerequisites
 - Node.js 18+
-- npm or yarn
+- npm or pnpm
 - Supabase account
 - Algorand testnet access
 
@@ -102,7 +120,7 @@ npm run dev
 ### Supabase Setup
 
 1. Create a new Supabase project
-2. Run the SQL schema from `schema.sql`
+2. Run the SQL schema from `supabase/migrations/20250614090718_holy_coast.sql`
 3. Enable Row Level Security
 4. Configure authentication settings
 
@@ -132,6 +150,8 @@ The project includes comprehensive tests for:
 - Voice intent parser
 - Authentication flows
 - Transaction handling
+- Error boundaries
+- Performance monitoring
 
 ## 📦 Building for Production
 
@@ -206,15 +226,35 @@ Key functions:
 - Row Level Security (RLS) enabled
 - HTTPS enforced in production
 - No sensitive data in localStorage
+- Comprehensive error boundaries
+- Performance monitoring for security issues
 
-## 🎯 Roadmap
+## 🎯 Recent Improvements
 
-- [ ] Multi-language voice support
-- [ ] Additional blockchain networks
-- [ ] Advanced voice commands
-- [ ] Social payment features
-- [ ] Merchant integration
-- [ ] Advanced analytics
+### Enhanced User Experience
+- **Error Boundary**: Graceful error handling with recovery options
+- **Loading States**: Beautiful loading spinners with context
+- **Network Status**: Real-time offline/online detection
+- **Voice Visualizer**: Visual feedback during voice input
+- **Transaction Confirmation**: Detailed success screens with explorer links
+
+### Security Enhancements
+- **Security Settings**: Comprehensive wallet security management
+- **Seed Phrase Backup**: Export and copy functionality
+- **Biometric Options**: Fingerprint/face recognition setup
+- **Auto-lock**: Automatic wallet locking for security
+
+### Developer Experience
+- **Performance Monitoring**: Built-in performance tracking
+- **Analytics**: User behavior and error tracking
+- **Better Error Handling**: Comprehensive error boundaries
+- **Code Organization**: Improved component structure
+
+### UI/UX Improvements
+- **Voice Command Help**: Interactive guide for voice commands
+- **Better Accessibility**: Improved screen reader support
+- **Responsive Design**: Enhanced mobile experience
+- **Dark Mode**: Consistent theming throughout
 
 ## 🤝 Contributing
 

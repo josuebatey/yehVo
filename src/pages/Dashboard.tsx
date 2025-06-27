@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Wallet, Send, QrCode, History, TrendingUp, Crown, RefreshCw, Bell, Copy } from 'lucide-react'
+import { Wallet, Send, QrCode, History, TrendingUp, Crown, RefreshCw, Bell, Copy, Settings } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { VoiceButton } from '../components/VoiceButton'
 import { PaywallModal } from '../components/PaywallModal'
 import { TavusAvatar } from '../components/TavusAvatar'
+import { SecuritySettings } from '../components/SecuritySettings'
+import { VoiceVisualizer } from '../components/VoiceVisualizer'
+import { TransactionConfirmation } from '../components/TransactionConfirmation'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 import { useAuthStore } from '../store/auth'
 import { useTransactionStore } from '../store/transactions'
 import { voiceService, type VoiceCommand } from '../services/voice'
@@ -35,6 +39,9 @@ export function Dashboard() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [lastTransactionCount, setLastTransactionCount] = useState(0)
   const [newReceivedCount, setNewReceivedCount] = useState(0)
+  const [isListening, setIsListening] = useState(false)
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [lastTransaction, setLastTransaction] = useState<any>(null)
 
   useEffect(() => {
     if (!user) {
@@ -92,6 +99,7 @@ export function Dashboard() {
   }
 
   const handleVoiceCommand = async (command: VoiceCommand) => {
+    setIsListening(false)
     try {
       switch (command.action) {
         case 'send':
@@ -156,10 +164,12 @@ export function Dashboard() {
         senderAddress: wallet.address
       })
 
-      toast({
-        title: "Payment Sent!",
-        description: `Successfully sent ${formatCurrency(amountUsd)} to ${recipient}`
+      setLastTransaction({
+        txHash,
+        amount: amountUsd,
+        recipient: recipientAddress
       })
+      setShowConfirmation(true)
 
       await voiceService.speak(`Payment successful! I've sent ${formatCurrency(amountUsd)} to ${recipient}. The transaction ID is ${txHash.slice(0, 8)}.`)
     } catch (error) {
@@ -178,10 +188,20 @@ export function Dashboard() {
   if (!user || !wallet) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading your wallet...</p>
-        </div>
+        <LoadingSpinner size="lg" text="Loading your wallet..." />
+      </div>
+    )
+  }
+
+  if (showConfirmation && lastTransaction) {
+    return (
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4">
+        <TransactionConfirmation
+          txHash={lastTransaction.txHash}
+          amount={lastTransaction.amount}
+          recipient={lastTransaction.recipient}
+          onClose={() => setShowConfirmation(false)}
+        />
       </div>
     )
   }
@@ -226,12 +246,20 @@ export function Dashboard() {
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
+          <SecuritySettings />
           <VoiceButton 
             onCommand={handleVoiceCommand}
             disabled={isProcessingPayment}
           />
         </div>
       </div>
+
+      {/* Voice Visualizer */}
+      {isListening && (
+        <div className="flex justify-center">
+          <VoiceVisualizer isListening={isListening} />
+        </div>
+      )}
 
       {/* Balance Card as Golden Debit Card */}
       <div className="w-full flex justify-center ">
@@ -316,7 +344,11 @@ export function Dashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {transactions.length > 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <LoadingSpinner text="Loading transactions..." />
+            </div>
+          ) : transactions.length > 0 ? (
             <div className="space-y-4">
               {transactions.slice(0, 5).map((tx) => (
                 <div key={tx.id}  className="flex items-center justify-between p-3 rounded-lg border">

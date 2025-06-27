@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate, BrowserRouter } from 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Layout } from './components/Layout'
 import { Toaster } from './components/ui/toaster'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { NetworkStatus } from './components/NetworkStatus'
+import { VoiceCommandHelp } from './components/VoiceCommandHelp'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
@@ -48,44 +51,48 @@ function App() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <div className="min-h-screen bg-background text-foreground">
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Home />} />
-              <Route 
-                path="login" 
-                element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} 
-              />
-              <Route 
-                path="register" 
-                element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />} 
-              />
-              <Route 
-                path="dashboard" 
-                element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />} 
-              />
-              <Route 
-                path="receive" 
-                element={isAuthenticated ? <Receive /> : <Navigate to="/login" replace />} 
-              />
-              <Route 
-                path="send" 
-                element={isAuthenticated ? <Send /> : <Navigate to="/login" replace />} 
-              />
-              <Route 
-                path="history" 
-                element={isAuthenticated ? <History /> : <Navigate to="/login" replace />} 
-              />
-              <Route path="verify-email" element={<VerifyEmail />} />
-              <Route path="admin" element={<AdminDashboard />} />
-            </Route>
-          </Routes>
-          <Toaster />
-        </div>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <div className="min-h-screen bg-background text-foreground">
+            <NetworkStatus />
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Home />} />
+                <Route 
+                  path="login" 
+                  element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} 
+                />
+                <Route 
+                  path="register" 
+                  element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />} 
+                />
+                <Route 
+                  path="dashboard" 
+                  element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />} 
+                />
+                <Route 
+                  path="receive" 
+                  element={isAuthenticated ? <Receive /> : <Navigate to="/login" replace />} 
+                />
+                <Route 
+                  path="send" 
+                  element={isAuthenticated ? <Send /> : <Navigate to="/login" replace />} 
+                />
+                <Route 
+                  path="history" 
+                  element={isAuthenticated ? <History /> : <Navigate to="/login" replace />} 
+                />
+                <Route path="verify-email" element={<VerifyEmail />} />
+                <Route path="admin" element={<AdminDashboard />} />
+              </Route>
+            </Routes>
+            <Toaster />
+            {isAuthenticated && <VoiceCommandHelp />}
+          </div>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
 
