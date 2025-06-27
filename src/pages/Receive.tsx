@@ -17,15 +17,24 @@ export function Receive() {
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [isSpeaking, setIsSpeaking] = useState(false)
 
+  // Use user.algorandAddress as the primary source of truth
+  const walletAddress = user?.algorandAddress || wallet?.address
+
   // Check if we have valid data
-  const hasValidWallet = wallet && wallet.address && typeof wallet.address === 'string' && wallet.address.length > 0
-  const hasValidUser = user && user.id && typeof user.id === 'string'
+  const hasValidUser = Boolean(
+    user && 
+    user.id && 
+    typeof user.id === 'string' &&
+    user.algorandAddress &&
+    typeof user.algorandAddress === 'string' &&
+    user.algorandAddress.length === 58
+  )
 
   useEffect(() => {
-    if (hasValidWallet) {
-      generateQRCode(wallet.address)
+    if (walletAddress) {
+      generateQRCode(walletAddress)
     }
-  }, [hasValidWallet, wallet?.address])
+  }, [walletAddress])
 
   const generateQRCode = async (address: string) => {
     try {
@@ -44,7 +53,7 @@ export function Receive() {
   }
 
   const handleCopyAddress = async () => {
-    if (!hasValidWallet) {
+    if (!walletAddress) {
       toast({
         title: "No Address",
         description: "Wallet address is not available.",
@@ -54,7 +63,7 @@ export function Receive() {
     }
 
     try {
-      await navigator.clipboard.writeText(wallet.address)
+      await navigator.clipboard.writeText(walletAddress)
       toast({
         title: "Address Copied",
         description: "Your Algorand address has been copied to clipboard."
@@ -69,11 +78,11 @@ export function Receive() {
   }
 
   const handleSpeakAddress = async () => {
-    if (!hasValidWallet || isSpeaking) return
+    if (!walletAddress || isSpeaking) return
 
     setIsSpeaking(true)
     try {
-      const formattedAddress = wallet.address
+      const formattedAddress = walletAddress
         .split('')
         .join(' ')
         .replace(/(.{8})/g, '$1, ')
@@ -114,8 +123,8 @@ export function Receive() {
     )
   }
 
-  // Show loading state if wallet is missing but user exists
-  if (!hasValidWallet) {
+  // Show loading state if wallet address is missing
+  if (!walletAddress) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4">
@@ -123,6 +132,13 @@ export function Receive() {
           <p className="text-sm text-muted-foreground">
             Setting up your Algorand wallet...
           </p>
+          <div className="text-xs text-muted-foreground space-y-1 p-4 bg-muted rounded-lg">
+            <p className="font-semibold">Debug Info:</p>
+            <p>User ID: {user?.id || 'N/A'}</p>
+            <p>User Algorand Address: {user?.algorandAddress || 'N/A'}</p>
+            <p>Wallet exists: {wallet ? 'Yes' : 'No'}</p>
+            <p>Wallet Address: {wallet?.address || 'N/A'}</p>
+          </div>
         </div>
       </div>
     )
@@ -188,7 +204,7 @@ export function Receive() {
           <CardContent className="space-y-4">
             <div className="flex space-x-2">
               <Input
-                value={wallet.address}
+                value={walletAddress}
                 readOnly
                 className="font-mono text-sm"
               />
@@ -214,7 +230,7 @@ export function Receive() {
             <div className="text-sm text-muted-foreground">
               <p className="font-medium mb-2">Formatted address:</p>
               <p className="font-mono break-all">
-                {formatAddress(wallet.address)}
+                {formatAddress(walletAddress)}
               </p>
             </div>
           </CardContent>

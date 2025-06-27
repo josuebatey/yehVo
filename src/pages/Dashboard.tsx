@@ -38,22 +38,25 @@ export function Dashboard() {
   const [lastTransactionCount, setLastTransactionCount] = useState(0)
   const [newReceivedCount, setNewReceivedCount] = useState(0)
 
-  // Enhanced validation with better error handling
-  const hasValidWallet = Boolean(
-    wallet && 
-    wallet.address && 
-    typeof wallet.address === 'string' && 
-    wallet.address.length === 58 && // Algorand addresses are exactly 58 characters
-    wallet.privateKey && // Check if privateKey exists
-    (wallet.privateKey instanceof Uint8Array || Array.isArray(wallet.privateKey)) // Accept both types
-  )
+  // Use user.algorandAddress as the primary source of truth
+  const walletAddress = user?.algorandAddress || wallet?.address
   
+  // Enhanced validation with better error handling
   const hasValidUser = Boolean(
     user && 
     user.id && 
     typeof user.id === 'string' &&
     user.email &&
-    typeof user.email === 'string'
+    typeof user.email === 'string' &&
+    user.algorandAddress &&
+    typeof user.algorandAddress === 'string' &&
+    user.algorandAddress.length === 58 // Algorand addresses are exactly 58 characters
+  )
+  
+  const hasValidWallet = Boolean(
+    wallet && 
+    wallet.privateKey && // Check if privateKey exists
+    (wallet.privateKey instanceof Uint8Array || Array.isArray(wallet.privateKey)) // Accept both types
   )
 
   // Safe formatting functions to prevent React rendering errors
@@ -72,38 +75,27 @@ export function Dashboard() {
     return balance.toFixed(6)
   }
 
-  // Safe function to convert any value to a string for display
-  const safeStringify = (value: any): string => {
-    if (value === null || value === undefined) return 'undefined'
-    if (typeof value === 'string') return value
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-    if (value instanceof Uint8Array) return `Uint8Array(${value.length})`
-    if (Array.isArray(value)) return `Array(${value.length})`
-    if (typeof value === 'object') return JSON.stringify(value)
-    return String(value)
-  }
-
   // Debug logging with safe string conversion
   useEffect(() => {
     console.log('Dashboard Debug Info:')
     console.log('- authLoading:', authLoading)
     console.log('- hasValidUser:', hasValidUser)
     console.log('- hasValidWallet:', hasValidWallet)
+    console.log('- walletAddress:', walletAddress)
     console.log('- user:', user ? { 
       id: user.id, 
       email: user.email,
+      algorandAddress: user.algorandAddress,
       isPro: user.isPro 
     } : 'null')
     console.log('- wallet:', wallet ? { 
-      address: wallet.address, 
       hasPrivateKey: !!wallet.privateKey,
       hasMnemonic: !!wallet.mnemonic,
-      addressLength: wallet.address?.length || 0,
       privateKeyType: wallet.privateKey ? typeof wallet.privateKey : 'undefined'
     } : 'null')
     console.log('- balance:', balance)
     console.log('- balanceUsd:', balanceUsd)
-  }, [authLoading, hasValidUser, hasValidWallet, user, wallet, balance, balanceUsd])
+  }, [authLoading, hasValidUser, hasValidWallet, user, wallet, balance, balanceUsd, walletAddress])
 
   useEffect(() => {
     // Don't proceed if we don't have user or if auth is still loading
@@ -118,40 +110,31 @@ export function Dashboard() {
       return
     }
 
-    if (!hasValidWallet) {
-      console.log('No valid wallet, waiting for wallet to load...')
-      // Don't redirect immediately, give it a moment for wallet to load
-      const timer = setTimeout(() => {
-        if (!wallet) {
-          console.log('Wallet still not available after timeout')
-          toast({
-            title: "Wallet Error",
-            description: "Failed to load your wallet. Please try logging in again.",
-            variant: "destructive"
-          })
-        }
-      }, 10000) // 10 second timeout (increased from 5)
-
-      return () => clearTimeout(timer)
+    if (!walletAddress) {
+      console.log('No wallet address available')
+      toast({
+        title: "Wallet Error",
+        description: "Wallet address not found. Please try logging in again.",
+        variant: "destructive"
+      })
+      return
     }
 
-    // Only proceed with data fetching if we have both user and wallet
-    if (hasValidUser && hasValidWallet) {
-      console.log('Valid user and wallet found, fetching data...')
-      fetchTransactions(user.id).catch(error => {
-        console.error('Failed to fetch transactions:', error)
-      })
-      
-      fetchBalance(wallet.address).catch(error => {
-        console.error('Failed to fetch balance:', error)
-      })
-      
-      // Start real-time updates
-      startRealtimeUpdates(user.id)
-      
-      // Also start polling as a fallback (every 10 seconds)
-      startPolling(user.id, wallet.address)
-    }
+    // Proceed with data fetching using user.algorandAddress
+    console.log('Valid user found, fetching data with address:', walletAddress)
+    fetchTransactions(user.id).catch(error => {
+      console.error('Failed to fetch transactions:', error)
+    })
+    
+    fetchBalance(walletAddress).catch(error => {
+      console.error('Failed to fetch balance:', error)
+    })
+    
+    // Start real-time updates
+    startRealtimeUpdates(user.id)
+    
+    // Also start polling as a fallback (every 10 seconds)
+    startPolling(user.id, walletAddress)
 
     // Cleanup function
     return () => {
@@ -160,10 +143,9 @@ export function Dashboard() {
     }
   }, [
     user, 
-    wallet, 
+    walletAddress,
     authLoading, 
-    hasValidUser, 
-    hasValidWallet,
+    hasValidUser,
     navigate, 
     fetchTransactions, 
     fetchBalance, 
@@ -194,7 +176,7 @@ export function Dashboard() {
   }, [transactions, lastTransactionCount, toast, newReceivedCount])
 
   const handleRefresh = async () => {
-    if (!hasValidUser || !hasValidWallet) {
+    if (!hasValidUser || !walletAddress) {
       toast({
         title: "Cannot Refresh",
         description: "User or wallet data is not available.",
@@ -206,7 +188,7 @@ export function Dashboard() {
     try {
       await Promise.all([
         fetchTransactions(user.id),
-        fetchBalance(wallet.address)
+        fetchBalance(walletAddress)
       ])
       setNewReceivedCount(0) // Clear notification count
       toast({
@@ -262,7 +244,7 @@ export function Dashboard() {
   }
 
   const handleSendPayment = async (recipient: string, amountUsd: number) => {
-    if (!hasValidUser || !hasValidWallet) {
+    if (!hasValidUser || !hasValidWallet || !walletAddress) {
       await voiceService.speak("Sorry, your wallet is not available right now.")
       return
     }
@@ -288,7 +270,7 @@ export function Dashboard() {
         amountUsd,
         privateKey: wallet.privateKey,
         userId: user.id,
-        senderAddress: wallet.address
+        senderAddress: walletAddress
       })
 
       toast({
@@ -311,7 +293,7 @@ export function Dashboard() {
   }
 
   const handleCopyAddress = async () => {
-    if (!hasValidWallet) {
+    if (!walletAddress) {
       toast({
         title: "No Address",
         description: "Wallet address is not available.",
@@ -321,7 +303,7 @@ export function Dashboard() {
     }
 
     try {
-      await navigator.clipboard.writeText(wallet.address)
+      await navigator.clipboard.writeText(walletAddress)
       toast({
         title: 'Address Copied',
         description: 'Your Algorand address has been copied to clipboard.'
@@ -359,8 +341,8 @@ export function Dashboard() {
     )
   }
 
-  // Show loading state if wallet is missing but user exists
-  if (!hasValidWallet) {
+  // Show loading state if wallet address is missing
+  if (!walletAddress) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4">
@@ -370,12 +352,10 @@ export function Dashboard() {
           </p>
           <div className="text-xs text-muted-foreground space-y-1 p-4 bg-muted rounded-lg">
             <p className="font-semibold">Debug Info:</p>
-            <p>User ID: {safeStringify(user?.id)}</p>
+            <p>User ID: {user?.id || 'N/A'}</p>
+            <p>User Algorand Address: {user?.algorandAddress || 'N/A'}</p>
             <p>Wallet exists: {wallet ? 'Yes' : 'No'}</p>
-            <p>Address: {safeStringify(wallet?.address)}</p>
-            <p>Address length: {safeStringify(wallet?.address?.length)}</p>
-            <p>Has private key: {wallet?.privateKey ? 'Yes' : 'No'}</p>
-            <p>Private key type: {safeStringify(wallet?.privateKey ? typeof wallet.privateKey : undefined)}</p>
+            <p>Wallet Address: {wallet?.address || 'N/A'}</p>
           </div>
         </div>
       </div>
@@ -477,7 +457,7 @@ export function Dashboard() {
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center min-w-0">
                 <span className="text-xs font-mono tracking-widest text-yellow-900/70 dark:text-yellow-900/80 break-all min-w-0">
-                  {safeFormatAddress(wallet?.address)}
+                  {safeFormatAddress(walletAddress)}
                 </span>
                 <Button
                   variant="ghost"
