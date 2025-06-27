@@ -65,14 +65,13 @@ export default defineConfig({
       'tweetnacl',
       'json-bigint',
       '@algorandfoundation/algokit-utils',
-      'qrcode',
-      'jsqr'
+      'qrcode'
     ],
     exclude: []
   },
   build: {
     commonjsOptions: {
-      include: [/algosdk/, /tweetnacl/, /json-bigint/, /qrcode/, /jsqr/, /node_modules/],
+      include: [/algosdk/, /tweetnacl/, /json-bigint/, /qrcode/, /node_modules/],
       transformMixedEsModules: true
     }
   },
