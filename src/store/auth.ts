@@ -260,14 +260,24 @@ export const useAuthStore = create<AuthState>()(
           const {
             data: { session },
           } = await supabase.auth.getSession();
+          
           if (session?.user) {
+            console.log("Found existing session for user:", session.user.id);
+            
             // Get user data from database
             const { data: userData, error: userError } = await supabase
               .from("users")
               .select("*")
               .eq("id", session.user.id)
               .single();
-            if (userError) throw userError;
+              
+            if (userError) {
+              console.error("Failed to fetch user data:", userError);
+              // If user doesn't exist in our database, sign them out
+              await supabase.auth.signOut();
+              set({ isLoading: false });
+              return;
+            }
 
             // Decrypt wallet seed
             let decryptedSeed: string;
@@ -309,11 +319,17 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
             });
           } else {
+            console.log("No existing session found");
             set({ isLoading: false });
           }
         } catch (error) {
           console.error("Auth initialization failed:", error);
-          set({ isLoading: false });
+          set({ 
+            user: null,
+            wallet: null,
+            isAuthenticated: false,
+            isLoading: false 
+          });
         }
       },
 

@@ -19,11 +19,13 @@ import { QuickActionsPill } from '../components/QuickActionsPill'
 
 export function Dashboard() {
   const navigate = useNavigate()
-  const { user, wallet } = useAuthStore()
+  const { user, wallet, isLoading: authLoading } = useAuthStore()
+  const { toast } = useToast()
 
   // Debug logging to understand the wallet state
   console.log('Dashboard - User:', user)
   console.log('Dashboard - Wallet:', wallet)
+  console.log('Dashboard - Auth Loading:', authLoading)
   console.log('Dashboard - Wallet type:', typeof wallet)
   console.log('Dashboard - Wallet address:', wallet?.address)
 
@@ -38,9 +40,8 @@ export function Dashboard() {
     stopRealtimeUpdates,
     startPolling,
     stopPolling,
-    isLoading
+    isLoading: transactionLoading
   } = useTransactionStore()
-  const { toast } = useToast()
   
   const [showPaywall, setShowPaywall] = useState(false)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
@@ -50,15 +51,51 @@ export function Dashboard() {
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [lastTransaction, setLastTransaction] = useState<any>(null)
 
+  // Check if we have the minimum required data
+  const hasValidWallet = wallet && wallet.address && typeof wallet.address === 'string'
+  const hasValidUser = user && user.id && typeof user.id === 'string'
+
   useEffect(() => {
-    if (!user) {
+    // Don't proceed if we don't have user or if auth is still loading
+    if (authLoading) {
+      console.log('Auth still loading, waiting...')
+      return
+    }
+
+    if (!hasValidUser) {
+      console.log('No valid user, redirecting to login')
       navigate('/login')
       return
     }
 
-    if (user && wallet && wallet.address) {
-      fetchTransactions(user.id)
-      fetchBalance(wallet.address)
+    if (!hasValidWallet) {
+      console.log('No valid wallet found, user:', user)
+      // Don't redirect immediately, give it a moment for wallet to load
+      const timer = setTimeout(() => {
+        if (!wallet) {
+          console.error('Wallet failed to load after timeout')
+          toast({
+            title: "Wallet Error",
+            description: "Failed to load your wallet. Please try logging in again.",
+            variant: "destructive"
+          })
+        }
+      }, 5000) // 5 second timeout
+
+      return () => clearTimeout(timer)
+    }
+
+    // Only proceed with data fetching if we have both user and wallet
+    if (hasValidUser && hasValidWallet) {
+      console.log('Fetching data for user:', user.id, 'wallet:', wallet.address)
+      
+      fetchTransactions(user.id).catch(error => {
+        console.error('Failed to fetch transactions:', error)
+      })
+      
+      fetchBalance(wallet.address).catch(error => {
+        console.error('Failed to fetch balance:', error)
+      })
       
       // Start real-time updates
       startRealtimeUpdates(user.id)
@@ -72,7 +109,21 @@ export function Dashboard() {
       stopRealtimeUpdates()
       stopPolling()
     }
-  }, [user, wallet, navigate, fetchTransactions, fetchBalance, startRealtimeUpdates, stopRealtimeUpdates, startPolling, stopPolling])
+  }, [
+    user, 
+    wallet, 
+    authLoading, 
+    hasValidUser, 
+    hasValidWallet,
+    navigate, 
+    fetchTransactions, 
+    fetchBalance, 
+    startRealtimeUpdates, 
+    stopRealtimeUpdates, 
+    startPolling, 
+    stopPolling,
+    toast
+  ])
 
   // Check for new transactions and show notifications
   useEffect(() => {
@@ -94,13 +145,31 @@ export function Dashboard() {
   }, [transactions, lastTransactionCount, toast, newReceivedCount])
 
   const handleRefresh = async () => {
-    if (user && wallet && wallet.address) {
-      await fetchTransactions(user.id)
-      await fetchBalance(wallet.address)
+    if (!hasValidUser || !hasValidWallet) {
+      toast({
+        title: "Cannot Refresh",
+        description: "User or wallet data is not available.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      await Promise.all([
+        fetchTransactions(user.id),
+        fetchBalance(wallet.address)
+      ])
       setNewReceivedCount(0) // Clear notification count
       toast({
         title: "Refreshed!",
         description: "Transaction history and balance updated.",
+      })
+    } catch (error) {
+      console.error('Refresh failed:', error)
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to update data. Please try again.",
+        variant: "destructive"
       })
     }
   }
@@ -145,7 +214,10 @@ export function Dashboard() {
   }
 
   const handleSendPayment = async (recipient: string, amountUsd: number) => {
-    if (!user || !wallet) return
+    if (!hasValidUser || !hasValidWallet) {
+      await voiceService.speak("Sorry, your wallet is not available right now.")
+      return
+    }
 
     // Check if user needs to upgrade for amounts over $10
     if (!user.isPro && amountUsd > 10) {
@@ -192,10 +264,40 @@ export function Dashboard() {
     }
   }
 
-  if (!user || !wallet) {
+  // Show loading state while auth is loading
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" text="Loading your wallet..." />
+        <LoadingSpinner size="lg" text="Loading VoicePay..." />
+      </div>
+    )
+  }
+
+  // Show error state if user is missing
+  if (!hasValidUser) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <p className="text-lg font-semibold">Authentication Required</p>
+          <p className="text-muted-foreground">Please log in to access your dashboard.</p>
+          <Button onClick={() => navigate('/login')}>
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show loading state if wallet is missing but user exists
+  if (!hasValidWallet) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <LoadingSpinner size="lg" text="Loading your wallet..." />
+          <p className="text-sm text-muted-foreground">
+            Setting up your Algorand wallet...
+          </p>
+        </div>
       </div>
     )
   }
@@ -236,7 +338,7 @@ export function Dashboard() {
                 variant="outline"
                 size="icon"
                 onClick={handleRefresh}
-                disabled={isLoading}
+                disabled={transactionLoading}
               >
                 <Bell className="h-4 w-4" />
               </Button>
@@ -249,9 +351,9 @@ export function Dashboard() {
             variant="outline"
             size="icon"
             onClick={handleRefresh}
-            disabled={isLoading}
+            disabled={transactionLoading}
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${transactionLoading ? 'animate-spin' : ''}`} />
           </Button>
           <SecuritySettings />
           <VoiceButton 
@@ -318,11 +420,19 @@ export function Dashboard() {
                   aria-label="Copy address"
                   onClick={async () => {
                     if (wallet?.address) {
-                      await navigator.clipboard.writeText(wallet.address)
-                      toast({
-                        title: 'Address Copied',
-                        description: 'Your Algorand address has been copied to clipboard.'
-                      })
+                      try {
+                        await navigator.clipboard.writeText(wallet.address)
+                        toast({
+                          title: 'Address Copied',
+                          description: 'Your Algorand address has been copied to clipboard.'
+                        })
+                      } catch (error) {
+                        toast({
+                          title: 'Copy Failed',
+                          description: 'Failed to copy address to clipboard.',
+                          variant: 'destructive'
+                        })
+                      }
                     }
                   }}
                 >
@@ -351,7 +461,7 @@ export function Dashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {transactionLoading ? (
             <div className="flex justify-center py-8">
               <LoadingSpinner text="Loading transactions..." />
             </div>
