@@ -53,14 +53,26 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      'algosdk/client': 'algosdk'
     }
   },
   define: {
     global: 'globalThis'
   },
   optimizeDeps: {
-    include: ['buffer', 'json-bigint', 'tweetnacl', 'algosdk']
+    include: [
+      'buffer',
+      'algosdk',
+      'tweetnacl',
+      'json-bigint',
+      '@algorandfoundation/algokit-utils'
+    ],
+    exclude: []
+  },
+  build: {
+    commonjsOptions: {
+      include: [/algosdk/, /tweetnacl/, /json-bigint/, /node_modules/],
+      transformMixedEsModules: true
+    }
   },
   server: {
     headers: {
