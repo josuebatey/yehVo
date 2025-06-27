@@ -68,7 +68,7 @@ export default defineConfig({
         script-src 'self' 'unsafe-inline' 'unsafe-eval';
         style-src 'self' 'unsafe-inline';
         img-src 'self' data: https:;
-        connect-src 'self' https://*.supabase.co https://*.algonode.cloud https://api.coingecko.com https://e.revenue.cat https://api.revenuecat.com https://corsproxy.io;
+        connect-src *;
       `.replace(/\n/g, ' ')
     }
   }
