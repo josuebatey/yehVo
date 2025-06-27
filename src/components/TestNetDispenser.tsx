@@ -3,7 +3,7 @@ import { Card, CardContent, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { CheckCircle, AlertCircle } from 'lucide-react';
-import { algorand } from '@algorandfoundation/algokit-utils';
+import * as algokit from '@algorandfoundation/algokit-utils';
 
 
 export function TestNetDispenser() {
@@ -23,7 +23,7 @@ export function TestNetDispenser() {
     setStatus('loading');
     setMessage('');
     try {
-      const client = algorand.getTestNetDispenserApiClient({ authToken });
+      const client = algokit.algorand.getTestNetDispenserApiClient({ authToken });
       // 1 Algo = 1_000_000 microAlgos
       const response = await client.fund(address, 1_000_000);
       setStatus('success');
@@ -67,4 +67,4 @@ export function TestNetDispenser() {
       </CardContent>
     </Card>
   );
-} 
+}
