@@ -314,7 +314,7 @@ export function Dashboard() {
           <LoadingSpinner size="lg" text="Loading your wallet..." />
           <p className="text-sm text-muted-foreground">
             Setting up your Algorand wallet...
-            {hasValidWallet}
+            {hasValidWallet} ???
           </p>
         </div>
       </div>
