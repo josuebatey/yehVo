@@ -93,7 +93,7 @@ class AlgorandService {
     note?: string
   ): Promise<string> {
     try {
-      // Enhanced input validation
+      // Enhanced input validation with better error messages
       if (!senderPrivateKey) {
         throw new Error('Sender private key is required')
       }
@@ -114,30 +114,44 @@ class AlgorandService {
         throw new Error('Amount must be a positive number')
       }
 
-      // Validate Algorand addresses
-      if (!this.isValidAddress(senderAddress.trim())) {
-        throw new Error('Invalid sender address format')
-      }
-
-      if (!this.isValidAddress(recipientAddress.trim())) {
-        throw new Error('Invalid recipient address format')
-      }
-
-      // Trim addresses to ensure no whitespace issues
+      // Clean addresses
       const cleanSenderAddress = senderAddress.trim()
       const cleanRecipientAddress = recipientAddress.trim()
 
-      console.log('Sending payment with params:', {
+      // Validate Algorand addresses
+      if (!this.isValidAddress(cleanSenderAddress)) {
+        throw new Error(`Invalid sender address format: ${cleanSenderAddress}`)
+      }
+
+      if (!this.isValidAddress(cleanRecipientAddress)) {
+        throw new Error(`Invalid recipient address format: ${cleanRecipientAddress}`)
+      }
+
+      console.log('Sending payment with validated params:', {
         senderAddress: cleanSenderAddress,
         recipientAddress: cleanRecipientAddress,
         amountMicroAlgos,
         privateKeyLength: senderPrivateKey.length
       })
 
+      // Derive the account from private key to ensure consistency
+      const senderAccount = algosdk.mnemonicToSecretKey(
+        algosdk.secretKeyToMnemonic(senderPrivateKey)
+      )
+
+      // Verify that the derived address matches the provided sender address
+      if (senderAccount.addr !== cleanSenderAddress) {
+        console.error('Address mismatch:', {
+          provided: cleanSenderAddress,
+          derived: senderAccount.addr
+        })
+        throw new Error('Sender address does not match the private key')
+      }
+
       // Get suggested transaction parameters
       const suggestedParams = await this.algodClient.getTransactionParams().do()
 
-      // Create payment transaction with clean addresses
+      // Create payment transaction with validated addresses
       const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
         from: cleanSenderAddress,
         to: cleanRecipientAddress,
@@ -154,6 +168,13 @@ class AlgorandService {
 
       // Wait for confirmation
       await this.waitForConfirmation(txId)
+
+      console.log('Payment successful:', {
+        txId,
+        from: cleanSenderAddress,
+        to: cleanRecipientAddress,
+        amount: amountMicroAlgos
+      })
 
       return txId
     } catch (error) {
@@ -172,7 +193,7 @@ class AlgorandService {
           throw new Error('Transaction timeout: Please try again')
         } else if (error.message.includes('fee')) {
           throw new Error('Transaction fee error: Insufficient funds for fees')
-        } else if (error.message.includes('required')) {
+        } else if (error.message.includes('required') || error.message.includes('format')) {
           // Re-throw validation errors as-is
           throw error
         } else {
@@ -244,28 +265,6 @@ class AlgorandService {
       usd: 0.20,
       lastUpdated: Date.now()
     };
-    /*
-    // Use a public CORS proxy for development
-    try {
-      const response = await fetch('https://corsproxy.io/?https://api.coingecko.com/api/v3/simple/price?ids=algorand&vs_currencies=usd');
-      const data = await response.json();
-      if (!data || !data.algorand || typeof data.algorand.usd !== 'number') {
-        console.error('Unexpected Coingecko response:', data);
-        throw new Error('Invalid price data from Coingecko');
-      }
-      return {
-        usd: data.algorand.usd,
-        lastUpdated: Date.now()
-      }
-    } catch (error) {
-      console.error('Error getting Algorand price:', error)
-      // Fallback price
-      return {
-        usd: 0.20,
-        lastUpdated: Date.now()
-      }
-    }
-    */
   }
 
   /**
@@ -302,9 +301,16 @@ class AlgorandService {
         return false
       }
       
-      // Use algosdk validation
+      // Check character set (Algorand uses base32 encoding)
+      const validChars = /^[A-Z2-7]+$/
+      if (!validChars.test(trimmedAddress)) {
+        return false
+      }
+      
+      // Use algosdk validation as final check
       return algosdk.isValidAddress(trimmedAddress)
-    } catch {
+    } catch (error) {
+      console.error('Address validation error:', error)
       return false
     }
   }
