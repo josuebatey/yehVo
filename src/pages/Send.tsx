@@ -32,13 +32,18 @@ export function Send() {
 
   // Utility to check if Algorand account exists using proper validation
   async function checkAlgorandAccountExists(address: string): Promise<boolean> {
-    return algorandService.isValidAddress(address)
+    if (!address || typeof address !== 'string') {
+      return false
+    }
+    return algorandService.isValidAddress(address.trim())
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!recipientAddress.trim()) {
+    const trimmedRecipient = recipientAddress.trim()
+
+    if (!trimmedRecipient) {
       toast({
         title: "Recipient Required",
         description: "Please enter a recipient address.",
@@ -58,12 +63,12 @@ export function Send() {
 
     setIsLoading(true)
 
-    // Check if recipient exists
-    const exists = await checkAlgorandAccountExists(recipientAddress)
-    if (!exists) {
+    // Check if recipient address is valid
+    const isValidAddress = await checkAlgorandAccountExists(trimmedRecipient)
+    if (!isValidAddress) {
       toast({
-        title: "Recipient Not Found",
-        description: "Recipient address does not exist.",
+        title: "Invalid Address",
+        description: "Please enter a valid Algorand address (58 characters, alphanumeric).",
         variant: "destructive"
       })
       setIsLoading(false)
@@ -82,16 +87,18 @@ export function Send() {
     }
 
     try {
-      await sendPayment({
-        recipientAddress,
+      // Use the actual recipient address from the form, not a mock one
+      const txHash = await sendPayment({
+        recipientAddress: trimmedRecipient, // Use the actual input
         amountUsd: parseFloat(amount),
         privateKey: wallet.privateKey,
         userId: user.id,
         senderAddress: wallet.address
       })
+
       toast({
         title: "Payment Sent!",
-        description: `Successfully sent $${amount} to ${formatAddress(recipientAddress)}`
+        description: `Successfully sent $${amount} to ${formatAddress(trimmedRecipient)}`
       })
       setRecipientAddress('')
       setAmount('')
@@ -230,10 +237,11 @@ export function Send() {
                     type="text"
                     value={recipientAddress}
                     onChange={(e) => setRecipientAddress(e.target.value)}
-                    placeholder="Enter Algorand wallet address"
+                    placeholder="Enter Algorand wallet address (58 characters)"
                     required
                     disabled={isLoading}
-                    className="flex-1"
+                    className="flex-1 font-mono text-sm"
+                    maxLength={58}
                   />
                   <Button
                     type="button"
@@ -245,6 +253,13 @@ export function Send() {
                     <Camera className="h-4 w-4" />
                   </Button>
                 </div>
+                {recipientAddress && (
+                  <p className="text-xs text-muted-foreground">
+                    {algorandService.isValidAddress(recipientAddress.trim()) 
+                      ? "✓ Valid Algorand address" 
+                      : "✗ Invalid address format"}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
