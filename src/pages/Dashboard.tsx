@@ -20,7 +20,6 @@ import { QuickActionsPill } from '../components/QuickActionsPill'
 export function Dashboard() {
   const navigate = useNavigate()
   const { user, wallet } = useAuthStore()
-  console.log( formatAddress(wallet.address))
   const { 
     transactions, 
     balance, 
