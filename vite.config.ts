@@ -59,7 +59,8 @@ export default defineConfig({
     global: 'globalThis'
   },
   optimizeDeps: {
-    include: ['buffer']
+    include: ['buffer'],
+    exclude: ['algosdk']
   },
   server: {
     headers: {
