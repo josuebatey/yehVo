@@ -167,35 +167,65 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
   sendPayment: async ({recipientAddress, amountUsd, privateKey, userId, senderAddress}: ISendPayment) => {
     try {
-      // Validate inputs
-      if (!recipientAddress || typeof recipientAddress !== 'string') {
-        throw new Error('Invalid recipient address')
+      // Enhanced validation with detailed error messages
+      if (!recipientAddress || typeof recipientAddress !== 'string' || recipientAddress.trim().length === 0) {
+        throw new Error('Recipient address is required and must be a valid string')
       }
 
-      if (!amountUsd || amountUsd <= 0) {
-        throw new Error('Invalid amount')
+      if (!amountUsd || typeof amountUsd !== 'number' || amountUsd <= 0) {
+        throw new Error('Amount must be a positive number')
       }
 
-      if (!privateKey || !(privateKey instanceof Uint8Array)) {
-        throw new Error('Invalid private key')
+      if (!privateKey) {
+        throw new Error('Private key is required')
       }
 
-      if (!userId || typeof userId !== 'string') {
-        throw new Error('Invalid user ID')
+      // Handle both Uint8Array and regular array for privateKey
+      let validPrivateKey: Uint8Array
+      if (privateKey instanceof Uint8Array) {
+        validPrivateKey = privateKey
+      } else if (Array.isArray(privateKey)) {
+        validPrivateKey = new Uint8Array(privateKey)
+      } else {
+        throw new Error('Private key must be a Uint8Array or array')
       }
 
-      if (!senderAddress || typeof senderAddress !== 'string') {
-        throw new Error('Invalid sender address')
+      if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+        throw new Error('User ID is required and must be a valid string')
       }
+
+      if (!senderAddress || typeof senderAddress !== 'string' || senderAddress.trim().length === 0) {
+        throw new Error('Sender address is required and must be a valid string')
+      }
+
+      // Validate addresses using Algorand service
+      const cleanRecipientAddress = recipientAddress.trim()
+      const cleanSenderAddress = senderAddress.trim()
+
+      if (!algorandService.isValidAddress(cleanRecipientAddress)) {
+        throw new Error('Invalid recipient address format')
+      }
+
+      if (!algorandService.isValidAddress(cleanSenderAddress)) {
+        throw new Error('Invalid sender address format')
+      }
+
+      console.log('Sending payment with validated params:', {
+        recipientAddress: cleanRecipientAddress,
+        senderAddress: cleanSenderAddress,
+        amountUsd,
+        userId,
+        privateKeyLength: validPrivateKey.length
+      })
 
       // Convert USD to microAlgos
       const amountMicroAlgos = await algorandService.usdToMicroAlgos(amountUsd)
       
-      // Send transaction - now passing senderAddress as the second parameter
+      // Send transaction with correct parameter order
       const txHash = await algorandService.sendPayment(
-        privateKey,
-        senderAddress,
-        recipientAddress,
+        validPrivateKey,
+        cleanSenderAddress,  // This is the new second parameter
+        cleanRecipientAddress,
         amountMicroAlgos,
         `VoicePay transfer of $${amountUsd}`
       )
@@ -208,8 +238,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
           tx_hash: txHash,
           amount_micro_algos: amountMicroAlgos,
           amount_usd: amountUsd,
-          recipient_address: recipientAddress,
-          sender_address: senderAddress,
+          recipient_address: cleanRecipientAddress,
+          sender_address: cleanSenderAddress,
           type: 'send',
           status: 'confirmed'
         })
@@ -218,7 +248,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       const { data: receiverUser, error: receiverError } = await supabase
         .from('users')
         .select('id')
-        .eq('algorand_address', recipientAddress)
+        .eq('algorand_address', cleanRecipientAddress)
         .maybeSingle();
 
       // Debug: check what is returned for receiverUser and error
@@ -233,8 +263,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
             tx_hash: txHash,
             amount_micro_algos: amountMicroAlgos,
             amount_usd: amountUsd,
-            recipient_address: recipientAddress,
-            sender_address: senderAddress,
+            recipient_address: cleanRecipientAddress,
+            sender_address: cleanSenderAddress,
             type: 'receive',
             status: 'confirmed'
           })
@@ -243,15 +273,16 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
           console.error('Error inserting receiver transaction:', insertError)
         }
       } else {
-        console.warn('No receiver user found for address:', recipientAddress)
+        console.warn('No receiver user found for address:', cleanRecipientAddress)
       }
 
       // Refresh transactions and balance
       await get().fetchTransactions(userId)
-      await get().fetchBalance(senderAddress)
+      await get().fetchBalance(cleanSenderAddress)
 
       return txHash
     } catch (error) {
+      console.error('Send payment error:', error)
       throw error
     }
   },
