@@ -8,6 +8,7 @@ import { ArrowLeft, Send as SendIcon, Wallet, QrCode, Camera, X } from 'lucide-r
 import { Link } from 'react-router-dom'
 import { useTransactionStore } from '../store/transactions'
 import { algorandService } from '../services/algorand'
+import { formatAddress } from '../lib/utils'
 
 export function Send() {
   const [recipientAddress, setRecipientAddress] = useState('')
@@ -23,11 +24,11 @@ export function Send() {
   const { sendPayment } = useTransactionStore()
 
   // Utility function to safely format address
-  const formatAddress = (address: string | undefined | null): string => {
+  const safeFormatAddress = (address: string | undefined | null): string => {
     if (!address || typeof address !== 'string' || address.length < 16) {
       return 'Invalid Address'
     }
-    return `${address.slice(0, 8)}...${address.slice(-8)}`
+    return formatAddress(address)
   }
 
   // Utility to check if Algorand account exists using proper validation
@@ -98,7 +99,7 @@ export function Send() {
 
       toast({
         title: "Payment Sent!",
-        description: `Successfully sent $${amount} to ${formatAddress(trimmedRecipient)}`
+        description: `Successfully sent $${amount} to ${safeFormatAddress(trimmedRecipient)}`
       })
       setRecipientAddress('')
       setAmount('')
@@ -284,7 +285,7 @@ export function Send() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                       <Wallet className="h-4 w-4" />
-                      <span>From: {formatAddress(wallet.address)}</span>
+                      <span>From: {safeFormatAddress(wallet.address)}</span>
                     </div>
                     <Button
                       type="button"
@@ -376,7 +377,7 @@ export function Send() {
                   <QrCode className="h-16 w-16 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-500">QR Code Placeholder</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    {formatAddress(wallet.address)}
+                    {safeFormatAddress(wallet.address)}
                   </p>
                 </div>
               </div>
