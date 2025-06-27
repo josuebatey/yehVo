@@ -1,4 +1,4 @@
-import algosdk from 'algosdk'
+import * as algosdk from 'algosdk'
 import { microAlgosToAlgos, algosToMicroAlgos } from '../lib/utils'
 
 const ALGORAND_NODE_URL = import.meta.env.VITE_ALGORAND_NODE_URL
