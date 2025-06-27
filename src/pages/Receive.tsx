@@ -16,6 +16,11 @@ export function Receive() {
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [isSpeaking, setIsSpeaking] = useState(false)
 
+  // Debug logging
+  console.log('Receive - User:', user)
+  console.log('Receive - Wallet:', wallet)
+  console.log('Receive - Wallet address:', wallet?.address)
+
   useEffect(() => {
     if (wallet?.address) {
       generateQRCode(wallet.address)
@@ -34,12 +39,19 @@ export function Receive() {
       })
       setQrCodeUrl(url)
     } catch (error) {
-      // Handle error silently
+      console.error('QR code generation failed:', error)
     }
   }
 
   const handleCopyAddress = async () => {
-    if (!wallet?.address) return
+    if (!wallet?.address) {
+      toast({
+        title: "No Address",
+        description: "Wallet address is not available.",
+        variant: "destructive"
+      })
+      return
+    }
 
     try {
       await navigator.clipboard.writeText(wallet.address)
@@ -84,6 +96,34 @@ export function Receive() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p>Loading your wallet...</p>
+          <div className="mt-4 p-4 bg-muted rounded-lg">
+            <p className="text-sm">Debug Info:</p>
+            <p className="text-xs font-mono">User: {user ? 'exists' : 'null'}</p>
+            <p className="text-xs font-mono">Wallet: {wallet ? 'exists' : 'null'}</p>
+            <p className="text-xs font-mono">Address: {wallet?.address || 'none'}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Check if wallet has a valid address
+  if (!wallet.address || typeof wallet.address !== 'string' || wallet.address.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <p className="text-lg font-semibold">Wallet Address Not Available</p>
+          <p className="text-muted-foreground">Your wallet address could not be loaded.</p>
+          <div className="p-4 bg-muted rounded-lg">
+            <p className="text-sm">Debug Info:</p>
+            <p className="text-xs font-mono">Wallet exists: {wallet ? 'yes' : 'no'}</p>
+            <p className="text-xs font-mono">Address: {wallet?.address || 'undefined'}</p>
+            <p className="text-xs font-mono">Address type: {typeof wallet?.address}</p>
+            <p className="text-xs font-mono">Address length: {wallet?.address?.length || 0}</p>
+          </div>
+          <Button onClick={() => window.location.reload()}>
+            Reload Page
+          </Button>
         </div>
       </div>
     )

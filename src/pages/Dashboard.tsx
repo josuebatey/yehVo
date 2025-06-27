@@ -52,7 +52,7 @@ export function Dashboard() {
   const [lastTransaction, setLastTransaction] = useState<any>(null)
 
   // Check if we have the minimum required data
-  const hasValidWallet = wallet && wallet.address && typeof wallet.address === 'string'
+  const hasValidWallet = wallet && wallet.address && typeof wallet.address === 'string' && wallet.address.length > 0
   const hasValidUser = user && user.id && typeof user.id === 'string'
 
   useEffect(() => {
@@ -297,6 +297,12 @@ export function Dashboard() {
           <p className="text-sm text-muted-foreground">
             Setting up your Algorand wallet...
           </p>
+          <div className="mt-4 p-4 bg-muted rounded-lg">
+            <p className="text-sm">Debug Info:</p>
+            <p className="text-xs font-mono">User ID: {user?.id}</p>
+            <p className="text-xs font-mono">Wallet: {wallet ? 'exists' : 'null'}</p>
+            <p className="text-xs font-mono">Address: {wallet?.address || 'none'}</p>
+          </div>
         </div>
       </div>
     )
@@ -371,9 +377,9 @@ export function Dashboard() {
       )}
 
       {/* Balance Card as Golden Debit Card */}
-      <div className="w-full flex justify-center ">
+      <div className="w-full flex justify-center">
         <div
-          className=" relative w-full max-w-md aspect-[16/9] rounded-2xl shadow-xl flex flex-col justify-between p-4 sm:p-6 sm:pb-10 bg-gradient-to-br from-yellow-400 via-yellow-300 to-yellow-600 dark:from-yellow-500 dark:via-yellow-400 dark:to-yellow-700 text-yellow-900 dark:text-yellow-900 min-w-0"
+          className="relative w-full max-w-md aspect-[16/9] rounded-2xl shadow-xl flex flex-col justify-between p-4 sm:p-6 sm:pb-10 bg-gradient-to-br from-yellow-400 via-yellow-300 to-yellow-600 dark:from-yellow-500 dark:via-yellow-400 dark:to-yellow-700 text-yellow-900 dark:text-yellow-900 min-w-0"
           style={{ backgroundImage: 'linear-gradient(135deg, #FFD700 0%, #FFF7AE 60%, #B8860B 100%)' }}
         >
           {/* Motif: subtle lines or watermark */}
@@ -388,8 +394,9 @@ export function Dashboard() {
             <path d="M20 40 Q200 100 380 40" stroke="#fff" strokeOpacity="0.15" strokeWidth="8" fill="none" />
             <circle cx="320" cy="180" r="40" fill="#fff" fillOpacity="0.07" />
           </svg>
+          
           {/* Top Row: Chip/Icon and Badge */}
-          <div className="flex items-center justify-between z-10 ">
+          <div className="flex items-center justify-between z-10">
             {/* Chip Icon */}
             <div className="flex items-center">
               <svg width="36" height="24" viewBox="0 0 36 24" fill="none" className="mr-2">
@@ -401,22 +408,24 @@ export function Dashboard() {
             {/* Debit Badge */}
             <span className="px-3 py-1 rounded-full bg-yellow-900/80 text-yellow-100 text-xs font-bold tracking-widest shadow">DEBIT</span>
           </div>
+          
           {/* Center: Balance */}
-          <div className="flex-1 flex flex-col justify-center items-start z-10 mt-6 mb-2 ">
+          <div className="flex-1 flex flex-col justify-center items-start z-10 mt-6 mb-2">
             <div className="text-4xl font-extrabold tracking-tight mb-1 drop-shadow-sm">{formatCurrency(balanceUsd)}</div>
             <div className="text-base font-medium text-yellow-900/80 dark:text-yellow-900/90 mb-2">{balance.toFixed(6)} ALGO</div>
           </div>
+          
           {/* Bottom: Card Number (wallet address) */}
           <div className="flex items-center justify-between z-10 min-w-0">
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center min-w-0">
-                <span className="text-xs font-mono tracking-widest text-yellow-900/70 dark:text-yellow-900/80 break-all min-w-0 border border-red-500">
+                <span className="text-xs font-mono tracking-widest text-yellow-900/70 dark:text-yellow-900/80 break-all min-w-0">
                   {wallet?.address ? formatAddress(wallet.address) : 'Loading...'}
                 </span>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="p-1 text-yellow-900/70 hover:text-yellow-900/100"
+                  className="p-1 text-yellow-900/70 hover:text-yellow-900/100 ml-2"
                   aria-label="Copy address"
                   onClick={async () => {
                     if (wallet?.address) {
