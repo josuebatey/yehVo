@@ -98,7 +98,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           // 4. Store user data in database
-          const { data:insertedUser,error: dbError } = await supabase.from("users").insert({
+          const { data: insertedUser, error: dbError } = await supabase.from("users").insert({
             id: user.id,
             email: user.email,
             algorand_address: wallet.address,
@@ -120,7 +120,13 @@ export const useAuthStore = create<AuthState>()(
             // Don't fail the signup if RevenueCat fails
           }
 
-          // 6. Set state
+          // 6. Set state with proper wallet conversion
+          const finalWallet: AlgorandWallet = {
+            address: wallet.address,
+            mnemonic: wallet.mnemonic,
+            privateKey: wallet.privateKey instanceof Uint8Array ? wallet.privateKey : new Uint8Array(wallet.privateKey)
+          };
+
           set({
             user: {
               id: user.id,
@@ -129,7 +135,7 @@ export const useAuthStore = create<AuthState>()(
               isPro: false,
               createdAt: (user as any).created_at || new Date().toISOString(),
             },
-            wallet,
+            wallet: finalWallet,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -205,8 +211,13 @@ export const useAuthStore = create<AuthState>()(
             decryptedSeed = finalUserData.encrypted_seed;
           }
 
-          // 5. Restore wallet
-          const wallet = algorandService.restoreWallet(decryptedSeed);
+          // 5. Restore wallet with proper type conversion
+          const restoredWallet = algorandService.restoreWallet(decryptedSeed);
+          const finalWallet: AlgorandWallet = {
+            address: restoredWallet.address,
+            mnemonic: restoredWallet.mnemonic,
+            privateKey: restoredWallet.privateKey instanceof Uint8Array ? restoredWallet.privateKey : new Uint8Array(restoredWallet.privateKey)
+          };
 
           // 6. Initialize RevenueCat and check Pro status
           try {
@@ -228,7 +239,7 @@ export const useAuthStore = create<AuthState>()(
               isPro: finalUserData.is_pro || false,
               createdAt: finalUserData.created_at,
             },
-            wallet,
+            wallet: finalWallet,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -295,8 +306,13 @@ export const useAuthStore = create<AuthState>()(
               decryptedSeed = userData.encrypted_seed;
             }
 
-            // Restore wallet
-            const wallet = algorandService.restoreWallet(decryptedSeed);
+            // Restore wallet with proper type conversion
+            const restoredWallet = algorandService.restoreWallet(decryptedSeed);
+            const finalWallet: AlgorandWallet = {
+              address: restoredWallet.address,
+              mnemonic: restoredWallet.mnemonic,
+              privateKey: restoredWallet.privateKey instanceof Uint8Array ? restoredWallet.privateKey : new Uint8Array(restoredWallet.privateKey)
+            };
 
             // Initialize RevenueCat and check Pro status
             try {
@@ -314,7 +330,7 @@ export const useAuthStore = create<AuthState>()(
                 isPro: userData.is_pro || false,
                 createdAt: userData.created_at,
               },
-              wallet,
+              wallet: finalWallet,
               isAuthenticated: true,
               isLoading: false,
             });
@@ -393,7 +409,9 @@ export const useAuthStore = create<AuthState>()(
                 ...value.state,
                 wallet: value.state.wallet ? {
                   ...value.state.wallet,
-                  privateKey: Array.from(value.state.wallet.privateKey)
+                  privateKey: value.state.wallet.privateKey instanceof Uint8Array 
+                    ? Array.from(value.state.wallet.privateKey)
+                    : value.state.wallet.privateKey
                 } : null
               }
             };
