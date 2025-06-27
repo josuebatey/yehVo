@@ -93,30 +93,54 @@ class AlgorandService {
     note?: string
   ): Promise<string> {
     try {
-      // Validate inputs
-      if (!senderPrivateKey || !(senderPrivateKey instanceof Uint8Array)) {
-        throw new Error('Invalid sender private key')
+      // Enhanced input validation
+      if (!senderPrivateKey) {
+        throw new Error('Sender private key is required')
+      }
+      
+      if (!(senderPrivateKey instanceof Uint8Array)) {
+        throw new Error('Sender private key must be a Uint8Array')
       }
 
-      if (!senderAddress || typeof senderAddress !== 'string') {
-        throw new Error('Invalid sender address')
+      if (!senderAddress || typeof senderAddress !== 'string' || senderAddress.trim().length === 0) {
+        throw new Error('Sender address is required and must be a valid string')
       }
 
-      if (!recipientAddress || typeof recipientAddress !== 'string') {
-        throw new Error('Invalid recipient address')
+      if (!recipientAddress || typeof recipientAddress !== 'string' || recipientAddress.trim().length === 0) {
+        throw new Error('Recipient address is required and must be a valid string')
       }
 
-      if (!amountMicroAlgos || amountMicroAlgos <= 0) {
-        throw new Error('Invalid amount')
+      if (!amountMicroAlgos || typeof amountMicroAlgos !== 'number' || amountMicroAlgos <= 0) {
+        throw new Error('Amount must be a positive number')
       }
+
+      // Validate Algorand addresses
+      if (!this.isValidAddress(senderAddress.trim())) {
+        throw new Error('Invalid sender address format')
+      }
+
+      if (!this.isValidAddress(recipientAddress.trim())) {
+        throw new Error('Invalid recipient address format')
+      }
+
+      // Trim addresses to ensure no whitespace issues
+      const cleanSenderAddress = senderAddress.trim()
+      const cleanRecipientAddress = recipientAddress.trim()
+
+      console.log('Sending payment with params:', {
+        senderAddress: cleanSenderAddress,
+        recipientAddress: cleanRecipientAddress,
+        amountMicroAlgos,
+        privateKeyLength: senderPrivateKey.length
+      })
 
       // Get suggested transaction parameters
       const suggestedParams = await this.algodClient.getTransactionParams().do()
 
-      // Create payment transaction
+      // Create payment transaction with clean addresses
       const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        from: senderAddress,
-        to: recipientAddress,
+        from: cleanSenderAddress,
+        to: cleanRecipientAddress,
         amount: amountMicroAlgos,
         note: note ? new Uint8Array(Buffer.from(note)) : undefined,
         suggestedParams
@@ -133,19 +157,24 @@ class AlgorandService {
 
       return txId
     } catch (error) {
+      console.error('Payment error details:', error)
+      
       // Provide more specific error messages based on the error type
       if (error instanceof Error) {
         // Check for common Algorand error patterns
         if (error.message.includes('insufficient funds')) {
           throw new Error('Insufficient funds to complete the transaction')
-        } else if (error.message.includes('invalid address')) {
-          throw new Error('Invalid recipient address')
+        } else if (error.message.includes('invalid address') || error.message.includes('Address must not be null')) {
+          throw new Error('Invalid wallet address. Please check your wallet setup.')
         } else if (error.message.includes('network')) {
           throw new Error('Network error: Unable to connect to Algorand network')
         } else if (error.message.includes('timeout')) {
           throw new Error('Transaction timeout: Please try again')
         } else if (error.message.includes('fee')) {
           throw new Error('Transaction fee error: Insufficient funds for fees')
+        } else if (error.message.includes('required')) {
+          // Re-throw validation errors as-is
+          throw error
         } else {
           // Re-throw with the original error message for better debugging
           throw new Error(`Payment failed: ${error.message}`)
@@ -262,7 +291,19 @@ class AlgorandService {
    */
   isValidAddress(address: string): boolean {
     try {
-      return algosdk.isValidAddress(address)
+      if (!address || typeof address !== 'string') {
+        return false
+      }
+      
+      const trimmedAddress = address.trim()
+      
+      // Check length (Algorand addresses are exactly 58 characters)
+      if (trimmedAddress.length !== 58) {
+        return false
+      }
+      
+      // Use algosdk validation
+      return algosdk.isValidAddress(trimmedAddress)
     } catch {
       return false
     }
