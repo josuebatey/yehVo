@@ -119,7 +119,26 @@ class AlgorandService {
 
       return txId
     } catch (error) {
-      throw new Error('Failed to send payment')
+      // Provide more specific error messages based on the error type
+      if (error instanceof Error) {
+        // Check for common Algorand error patterns
+        if (error.message.includes('insufficient funds')) {
+          throw new Error('Insufficient funds to complete the transaction')
+        } else if (error.message.includes('invalid address')) {
+          throw new Error('Invalid recipient address')
+        } else if (error.message.includes('network')) {
+          throw new Error('Network error: Unable to connect to Algorand network')
+        } else if (error.message.includes('timeout')) {
+          throw new Error('Transaction timeout: Please try again')
+        } else if (error.message.includes('fee')) {
+          throw new Error('Transaction fee error: Insufficient funds for fees')
+        } else {
+          // Re-throw with the original error message for better debugging
+          throw new Error(`Payment failed: ${error.message}`)
+        }
+      } else {
+        throw new Error('Payment failed: Unknown error occurred')
+      }
     }
   }
 
