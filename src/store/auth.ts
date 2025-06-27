@@ -347,6 +347,28 @@ export const useAuthStore = create<AuthState>()(
         wallet: state.wallet,
         isAuthenticated: state.isAuthenticated,
       }),
+      serialize: (state) => {
+        // Convert Uint8Array to regular array for JSON serialization
+        const serializedState = {
+          ...state,
+          state: {
+            ...state.state,
+            wallet: state.state.wallet ? {
+              ...state.state.wallet,
+              privateKey: Array.from(state.state.wallet.privateKey)
+            } : null
+          }
+        };
+        return JSON.stringify(serializedState);
+      },
+      deserialize: (str) => {
+        const parsed = JSON.parse(str);
+        // Convert regular array back to Uint8Array
+        if (parsed.state.wallet && parsed.state.wallet.privateKey) {
+          parsed.state.wallet.privateKey = new Uint8Array(parsed.state.wallet.privateKey);
+        }
+        return parsed;
+      },
     }
   )
 );
