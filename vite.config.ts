@@ -60,8 +60,7 @@ export default defineConfig({
     global: 'globalThis'
   },
   optimizeDeps: {
-    include: ['buffer', 'json-bigint'],
-    exclude: ['algosdk']
+    include: ['buffer', 'json-bigint', 'tweetnacl', 'algosdk']
   },
   server: {
     headers: {
