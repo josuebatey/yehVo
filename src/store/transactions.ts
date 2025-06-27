@@ -191,9 +191,10 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       // Convert USD to microAlgos
       const amountMicroAlgos = await algorandService.usdToMicroAlgos(amountUsd)
       
-      // Send transaction - using the original method signature (without senderAddress parameter)
+      // Send transaction - now passing senderAddress as the second parameter
       const txHash = await algorandService.sendPayment(
         privateKey,
+        senderAddress,
         recipientAddress,
         amountMicroAlgos,
         `VoicePay transfer of $${amountUsd}`

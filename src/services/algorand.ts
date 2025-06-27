@@ -87,6 +87,7 @@ class AlgorandService {
    */
   async sendPayment(
     senderPrivateKey: Uint8Array,
+    senderAddress: string,
     recipientAddress: string,
     amountMicroAlgos: number,
     note?: string
@@ -97,6 +98,10 @@ class AlgorandService {
         throw new Error('Invalid sender private key')
       }
 
+      if (!senderAddress || typeof senderAddress !== 'string') {
+        throw new Error('Invalid sender address')
+      }
+
       if (!recipientAddress || typeof recipientAddress !== 'string') {
         throw new Error('Invalid recipient address')
       }
@@ -105,22 +110,12 @@ class AlgorandService {
         throw new Error('Invalid amount')
       }
 
-      // Derive sender account from private key
-      const senderAccount = algosdk.mnemonicToSecretKey(
-        algosdk.secretKeyToMnemonic(senderPrivateKey)
-      )
-
-      // Validate that we have a valid sender address
-      if (!senderAccount.addr) {
-        throw new Error('Could not derive sender address from private key')
-      }
-
       // Get suggested transaction parameters
       const suggestedParams = await this.algodClient.getTransactionParams().do()
 
       // Create payment transaction
       const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        from: senderAccount.addr,
+        from: senderAddress,
         to: recipientAddress,
         amount: amountMicroAlgos,
         note: note ? new Uint8Array(Buffer.from(note)) : undefined,
