@@ -21,6 +21,14 @@ export function Send() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { sendPayment } = useTransactionStore()
 
+  // Utility function to safely format address
+  const formatAddress = (address: string | undefined | null): string => {
+    if (!address || typeof address !== 'string' || address.length < 16) {
+      return 'Invalid Address'
+    }
+    return `${address.slice(0, 8)}...${address.slice(-8)}`
+  }
+
   // Utility to check if Algorand account exists (dev: allow any non-empty string)
   async function checkAlgorandAccountExists(address: string): Promise<boolean> {
     // For development, allow any non-empty string
@@ -83,7 +91,7 @@ export function Send() {
       })
       toast({
         title: "Payment Sent!",
-        description: `Successfully sent $${amount} to ${recipientAddress.slice(0, 8)}...${recipientAddress.slice(-8)}`
+        description: `Successfully sent $${amount} to ${formatAddress(recipientAddress)}`
       })
       setRecipientAddress('')
       setAmount('')
@@ -261,7 +269,7 @@ export function Send() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                       <Wallet className="h-4 w-4" />
-                      <span>From: {wallet.address.slice(0, 8)}...{wallet.address.slice(-8)}</span>
+                      <span>From: {formatAddress(wallet.address)}</span>
                     </div>
                     <Button
                       type="button"
@@ -353,7 +361,7 @@ export function Send() {
                   <QrCode className="h-16 w-16 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-500">QR Code Placeholder</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    {wallet.address.slice(0, 8)}...{wallet.address.slice(-8)}
+                    {formatAddress(wallet.address)}
                   </p>
                 </div>
               </div>
@@ -366,4 +374,4 @@ export function Send() {
       )}
     </>
   )
-} 
+}
