@@ -6,9 +6,6 @@ import { Button } from '../components/ui/button'
 import { VoiceButton } from '../components/VoiceButton'
 import { PaywallModal } from '../components/PaywallModal'
 import { TavusAvatar } from '../components/TavusAvatar'
-import { SecuritySettings } from '../components/SecuritySettings'
-import { VoiceVisualizer } from '../components/VoiceVisualizer'
-import { TransactionConfirmation } from '../components/TransactionConfirmation'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { useAuthStore } from '../store/auth'
 import { useTransactionStore } from '../store/transactions'
@@ -40,13 +37,25 @@ export function Dashboard() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [lastTransactionCount, setLastTransactionCount] = useState(0)
   const [newReceivedCount, setNewReceivedCount] = useState(0)
-  const [isListening, setIsListening] = useState(false)
-  const [showConfirmation, setShowConfirmation] = useState(false)
-  const [lastTransaction, setLastTransaction] = useState<any>(null)
 
-  // Check if we have the minimum required data
-  const hasValidWallet = wallet && wallet.address && typeof wallet.address === 'string' && wallet.address.length > 0
-  const hasValidUser = user && user.id && typeof user.id === 'string'
+  // Safely check if we have valid data
+  const hasValidWallet = Boolean(
+    wallet && 
+    wallet.address && 
+    typeof wallet.address === 'string' && 
+    wallet.address.length > 0 &&
+    wallet.privateKey &&
+    wallet.mnemonic &&
+    typeof wallet.mnemonic === 'string'
+  )
+  
+  const hasValidUser = Boolean(
+    user && 
+    user.id && 
+    typeof user.id === 'string' &&
+    user.email &&
+    typeof user.email === 'string'
+  )
 
   useEffect(() => {
     // Don't proceed if we don't have user or if auth is still loading
@@ -162,7 +171,6 @@ export function Dashboard() {
   }
 
   const handleVoiceCommand = async (command: VoiceCommand) => {
-    setIsListening(false)
     try {
       switch (command.action) {
         case 'send':
@@ -230,12 +238,10 @@ export function Dashboard() {
         senderAddress: wallet.address
       })
 
-      setLastTransaction({
-        txHash,
-        amount: amountUsd,
-        recipient: recipientAddress
+      toast({
+        title: "Payment Sent!",
+        description: `Successfully sent ${formatCurrency(amountUsd)} to ${recipient}`
       })
-      setShowConfirmation(true)
 
       await voiceService.speak(`Payment successful! I've sent ${formatCurrency(amountUsd)} to ${recipient}. The transaction ID is ${txHash.slice(0, 8)}.`)
     } catch (error) {
@@ -248,6 +254,31 @@ export function Dashboard() {
       await voiceService.speak("Sorry, the payment failed. Please check your balance and try again.")
     } finally {
       setIsProcessingPayment(false)
+    }
+  }
+
+  const handleCopyAddress = async () => {
+    if (!hasValidWallet) {
+      toast({
+        title: "No Address",
+        description: "Wallet address is not available.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(wallet.address)
+      toast({
+        title: 'Address Copied',
+        description: 'Your Algorand address has been copied to clipboard.'
+      })
+    } catch (error) {
+      toast({
+        title: 'Copy Failed',
+        description: 'Failed to copy address to clipboard.',
+        variant: 'destructive'
+      })
     }
   }
 
@@ -285,19 +316,6 @@ export function Dashboard() {
             Setting up your Algorand wallet...
           </p>
         </div>
-      </div>
-    )
-  }
-
-  if (showConfirmation && lastTransaction) {
-    return (
-      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4">
-        <TransactionConfirmation
-          txHash={lastTransaction.txHash}
-          amount={lastTransaction.amount}
-          recipient={lastTransaction.recipient}
-          onClose={() => setShowConfirmation(false)}
-        />
       </div>
     )
   }
@@ -342,20 +360,12 @@ export function Dashboard() {
           >
             <RefreshCw className={`h-4 w-4 ${transactionLoading ? 'animate-spin' : ''}`} />
           </Button>
-          <SecuritySettings />
           <VoiceButton 
             onCommand={handleVoiceCommand}
             disabled={isProcessingPayment}
           />
         </div>
       </div>
-
-      {/* Voice Visualizer */}
-      {isListening && (
-        <div className="flex justify-center">
-          <VoiceVisualizer isListening={isListening} />
-        </div>
-      )}
 
       {/* Balance Card as Golden Debit Card */}
       <div className="w-full flex justify-center">
@@ -392,8 +402,12 @@ export function Dashboard() {
           
           {/* Center: Balance */}
           <div className="flex-1 flex flex-col justify-center items-start z-10 mt-6 mb-2">
-            <div className="text-4xl font-extrabold tracking-tight mb-1 drop-shadow-sm">{formatCurrency(balanceUsd)}</div>
-            <div className="text-base font-medium text-yellow-900/80 dark:text-yellow-900/90 mb-2">{balance.toFixed(6)} ALGO</div>
+            <div className="text-4xl font-extrabold tracking-tight mb-1 drop-shadow-sm">
+              {formatCurrency(balanceUsd || 0)}
+            </div>
+            <div className="text-base font-medium text-yellow-900/80 dark:text-yellow-900/90 mb-2">
+              {(balance || 0).toFixed(6)} ALGO
+            </div>
           </div>
           
           {/* Bottom: Card Number (wallet address) */}
@@ -408,23 +422,7 @@ export function Dashboard() {
                   size="icon"
                   className="p-1 text-yellow-900/70 hover:text-yellow-900/100 ml-2"
                   aria-label="Copy address"
-                  onClick={async () => {
-                    if (wallet?.address) {
-                      try {
-                        await navigator.clipboard.writeText(wallet.address)
-                        toast({
-                          title: 'Address Copied',
-                          description: 'Your Algorand address has been copied to clipboard.'
-                        })
-                      } catch (error) {
-                        toast({
-                          title: 'Copy Failed',
-                          description: 'Failed to copy address to clipboard.',
-                          variant: 'destructive'
-                        })
-                      }
-                    }
-                  }}
+                  onClick={handleCopyAddress}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -458,7 +456,7 @@ export function Dashboard() {
           ) : transactions.length > 0 ? (
             <div className="space-y-4">
               {transactions.slice(0, 5).map((tx) => (
-                <div key={tx.id}  className="flex items-center justify-between p-3 rounded-lg border">
+                <div key={tx.id || tx.txHash || Math.random()} className="flex items-center justify-between p-3 rounded-lg border">
                   <div className="flex items-center space-x-3">
                     <div className={`p-2 rounded-full ${
                       tx.type === 'send' 
@@ -484,7 +482,7 @@ export function Dashboard() {
                     <p className={`font-medium ${
                       tx.type === 'send' ? 'text-red-600' : 'text-green-600'
                     }`}>
-                      {tx.type === 'send' ? '-' : '+'}{formatCurrency(tx.amountUsd)}
+                      {tx.type === 'send' ? '-' : '+'}{formatCurrency(tx.amountUsd || 0)}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {formatAddress(tx.type === 'send' ? tx.recipientAddress : tx.senderAddress)}
