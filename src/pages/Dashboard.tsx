@@ -22,7 +22,7 @@ export function Dashboard() {
   const { user, wallet } = useAuthStore()
 
   console.info(user)
-  console.info(wallet.address)
+  console.info(formatAddress(wallet.address))
   const { 
     transactions, 
     balance, 
