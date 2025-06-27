@@ -3,8 +3,20 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+// Enhanced error checking for development
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+  console.error('Missing Supabase environment variables:')
+  console.error('VITE_SUPABASE_URL:', supabaseUrl)
+  console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? '[SET]' : '[MISSING]')
+  throw new Error('Missing Supabase environment variables. Please check your .env file.')
+}
+
+// Check for placeholder values
+if (supabaseUrl.includes('your-project-id') || supabaseAnonKey.includes('your-anon-key')) {
+  console.error('Supabase environment variables contain placeholder values.')
+  console.error('Please update your .env file with actual Supabase credentials.')
+  console.error('Visit https://supabase.com to create a project and get your credentials.')
+  throw new Error('Supabase environment variables contain placeholder values. Please update your .env file with actual credentials.')
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
