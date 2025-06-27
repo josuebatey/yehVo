@@ -38,13 +38,14 @@ export function Dashboard() {
   const [lastTransactionCount, setLastTransactionCount] = useState(0)
   const [newReceivedCount, setNewReceivedCount] = useState(0)
 
-  // Simplified wallet validation - just check for address and privateKey
+  // Enhanced validation with better error handling
   const hasValidWallet = Boolean(
     wallet && 
     wallet.address && 
     typeof wallet.address === 'string' && 
     wallet.address.length === 58 && // Algorand addresses are exactly 58 characters
-    wallet.privateKey // Just check if privateKey exists, don't validate type
+    wallet.privateKey && // Check if privateKey exists
+    (wallet.privateKey instanceof Uint8Array || Array.isArray(wallet.privateKey)) // Accept both types
   )
   
   const hasValidUser = Boolean(
@@ -55,20 +56,43 @@ export function Dashboard() {
     typeof user.email === 'string'
   )
 
-  // Debug logging
+  // Safe formatting functions to prevent React rendering errors
+  const safeFormatCurrency = (amount: number | null | undefined): string => {
+    if (typeof amount !== 'number' || isNaN(amount)) return '$0.00'
+    return formatCurrency(amount)
+  }
+
+  const safeFormatAddress = (address: string | null | undefined): string => {
+    if (!address || typeof address !== 'string') return 'Loading...'
+    return formatAddress(address)
+  }
+
+  const safeFormatBalance = (balance: number | null | undefined): string => {
+    if (typeof balance !== 'number' || isNaN(balance)) return '0.000000'
+    return balance.toFixed(6)
+  }
+
+  // Debug logging with safe string conversion
   useEffect(() => {
     console.log('Dashboard Debug Info:')
     console.log('- authLoading:', authLoading)
     console.log('- hasValidUser:', hasValidUser)
     console.log('- hasValidWallet:', hasValidWallet)
-    console.log('- user:', user ? { id: user.id, email: user.email } : null)
+    console.log('- user:', user ? { 
+      id: user.id, 
+      email: user.email,
+      isPro: user.isPro 
+    } : 'null')
     console.log('- wallet:', wallet ? { 
       address: wallet.address, 
       hasPrivateKey: !!wallet.privateKey,
       hasMnemonic: !!wallet.mnemonic,
-      addressLength: wallet.address?.length 
-    } : null)
-  }, [authLoading, hasValidUser, hasValidWallet, user, wallet])
+      addressLength: wallet.address?.length || 0,
+      privateKeyType: wallet.privateKey ? typeof wallet.privateKey : 'undefined'
+    } : 'null')
+    console.log('- balance:', balance)
+    console.log('- balanceUsd:', balanceUsd)
+  }, [authLoading, hasValidUser, hasValidWallet, user, wallet, balance, balanceUsd])
 
   useEffect(() => {
     // Don't proceed if we don't have user or if auth is still loading
@@ -95,7 +119,7 @@ export function Dashboard() {
             variant: "destructive"
           })
         }
-      }, 5000) // 5 second timeout
+      }, 10000) // 10 second timeout (increased from 5)
 
       return () => clearTimeout(timer)
     }
@@ -150,9 +174,9 @@ export function Dashboard() {
       receivedTransactions.forEach(tx => {
         toast({
           title: "Payment Received! 💰",
-          description: `You received ${formatCurrency(tx.amountUsd)} from ${formatAddress(tx.senderAddress)}`,
+          description: `You received ${safeFormatCurrency(tx.amountUsd)} from ${safeFormatAddress(tx.senderAddress)}`,
         })
-        voiceService.speak(`You received ${formatCurrency(tx.amountUsd)}!`)
+        voiceService.speak(`You received ${safeFormatCurrency(tx.amountUsd)}!`)
       })
     }
     setLastTransactionCount(transactions.length)
@@ -200,13 +224,13 @@ export function Dashboard() {
           break
 
         case 'balance':
-          await voiceService.speak(`Your current balance is ${formatCurrency(balanceUsd || 0)}.`)
+          await voiceService.speak(`Your current balance is ${safeFormatCurrency(balanceUsd)}.`)
           break
 
         case 'history':
           const recentTx = transactions[0]
           if (recentTx) {
-            await voiceService.speak(`Your most recent transaction was a ${recentTx.type} of ${formatCurrency(recentTx.amountUsd)} on ${formatDate(new Date(recentTx.createdAt))}.`)
+            await voiceService.speak(`Your most recent transaction was a ${recentTx.type} of ${safeFormatCurrency(recentTx.amountUsd)} on ${formatDate(new Date(recentTx.createdAt))}.`)
           } else {
             await voiceService.speak("You don't have any transactions yet.")
           }
@@ -242,7 +266,7 @@ export function Dashboard() {
     setIsProcessingPayment(true)
 
     try {
-      await voiceService.speak(`Sending ${formatCurrency(amountUsd)} to ${recipient}. Please wait...`)
+      await voiceService.speak(`Sending ${safeFormatCurrency(amountUsd)} to ${recipient}. Please wait...`)
 
       // For demo purposes, we'll use a mock recipient address
       // In a real app, you'd resolve the recipient name to an address
@@ -258,10 +282,10 @@ export function Dashboard() {
 
       toast({
         title: "Payment Sent!",
-        description: `Successfully sent ${formatCurrency(amountUsd)} to ${recipient}`
+        description: `Successfully sent ${safeFormatCurrency(amountUsd)} to ${recipient}`
       })
 
-      await voiceService.speak(`Payment successful! I've sent ${formatCurrency(amountUsd)} to ${recipient}. The transaction ID is ${txHash.slice(0, 8)}.`)
+      await voiceService.speak(`Payment successful! I've sent ${safeFormatCurrency(amountUsd)} to ${recipient}. The transaction ID is ${String(txHash).slice(0, 8)}.`)
     } catch (error) {
       console.error('Payment failed:', error)
       toast({
@@ -333,13 +357,14 @@ export function Dashboard() {
           <p className="text-sm text-muted-foreground">
             Setting up your Algorand wallet...
           </p>
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p>Debug Info:</p>
-            <p>User ID: {user?.id}</p>
+          <div className="text-xs text-muted-foreground space-y-1 p-4 bg-muted rounded-lg">
+            <p className="font-semibold">Debug Info:</p>
+            <p>User ID: {user?.id || 'None'}</p>
             <p>Wallet exists: {wallet ? 'Yes' : 'No'}</p>
             <p>Address: {wallet?.address || 'None'}</p>
             <p>Address length: {wallet?.address?.length || 0}</p>
             <p>Has private key: {wallet?.privateKey ? 'Yes' : 'No'}</p>
+            <p>Private key type: {wallet?.privateKey ? typeof wallet.privateKey : 'undefined'}</p>
           </div>
         </div>
       </div>
@@ -353,8 +378,8 @@ export function Dashboard() {
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome back, {user.email}
-            {user.isPro && (
+            Welcome back, {user?.email || 'User'}
+            {user?.isPro && (
               <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
                 <Crown className="h-3 w-3 mr-1" />
                 Pro
@@ -429,10 +454,10 @@ export function Dashboard() {
           {/* Center: Balance */}
           <div className="flex-1 flex flex-col justify-center items-start z-10 mt-6 mb-2">
             <div className="text-4xl font-extrabold tracking-tight mb-1 drop-shadow-sm">
-              {formatCurrency(balanceUsd || 0)}
+              {safeFormatCurrency(balanceUsd)}
             </div>
             <div className="text-base font-medium text-yellow-900/80 dark:text-yellow-900/90 mb-2">
-              {(balance || 0).toFixed(6)} ALGO
+              {safeFormatBalance(balance)} ALGO
             </div>
           </div>
           
@@ -441,7 +466,7 @@ export function Dashboard() {
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center min-w-0">
                 <span className="text-xs font-mono tracking-widest text-yellow-900/70 dark:text-yellow-900/80 break-all min-w-0">
-                  {formatAddress(wallet.address)}
+                  {safeFormatAddress(wallet?.address)}
                 </span>
                 <Button
                   variant="ghost"
@@ -481,8 +506,8 @@ export function Dashboard() {
             </div>
           ) : transactions.length > 0 ? (
             <div className="space-y-4">
-              {transactions.slice(0, 5).map((tx) => (
-                <div key={tx.id || tx.txHash || Math.random()} className="flex items-center justify-between p-3 rounded-lg border">
+              {transactions.slice(0, 5).map((tx, index) => (
+                <div key={tx.id || tx.txHash || `tx-${index}`} className="flex items-center justify-between p-3 rounded-lg border">
                   <div className="flex items-center space-x-3">
                     <div className={`p-2 rounded-full ${
                       tx.type === 'send' 
@@ -508,10 +533,10 @@ export function Dashboard() {
                     <p className={`font-medium ${
                       tx.type === 'send' ? 'text-red-600' : 'text-green-600'
                     }`}>
-                      {tx.type === 'send' ? '-' : '+'}{formatCurrency(tx.amountUsd || 0)}
+                      {tx.type === 'send' ? '-' : '+'}{safeFormatCurrency(tx.amountUsd)}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {formatAddress(tx.type === 'send' ? tx.recipientAddress : tx.senderAddress)}
+                      {safeFormatAddress(tx.type === 'send' ? tx.recipientAddress : tx.senderAddress)}
                     </p>
                   </div>
                 </div>
