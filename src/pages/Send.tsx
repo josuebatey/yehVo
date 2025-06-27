@@ -17,7 +17,7 @@ export function Send() {
   const [showQRScanner, setShowQRScanner] = useState(false)
   const [showQRCode, setShowQRCode] = useState(false)
   
-  const { user, wallet } = useAuthStore()
+  const { user, wallet, authLoading } = useAuthStore()
   const { toast } = useToast()
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -25,6 +25,56 @@ export function Send() {
 
   // Use user.algorandAddress as the primary source of truth
   const walletAddress = user?.algorandAddress || wallet?.address
+
+  // Show loading state while authentication is being checked
+  if (authLoading) {
+    return (
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading wallet...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Show authentication required message if user is not logged in
+  if (!user) {
+    return (
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="text-center py-8">
+            <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+            <p className="text-muted-foreground mb-4">Please log in to send payments.</p>
+            <Button asChild>
+              <Link to="/login">Go to Login</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Show wallet loading message if wallet address is not available
+  if (!walletAddress) {
+    return (
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="text-center py-8">
+            <h2 className="text-xl font-semibold mb-2">Wallet Not Available</h2>
+            <p className="text-muted-foreground mb-4">Your wallet is not properly loaded. Please try refreshing the page.</p>
+            <Button asChild>
+              <Link to="/dashboard">Back to Dashboard</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   // Utility function to safely format address
   const safeFormatAddress = (address: string | undefined | null): string => {
@@ -65,6 +115,16 @@ export function Send() {
       return
     }
 
+    // Additional validation to ensure all required data is present
+    if (!wallet || !user || !walletAddress) {
+      toast({
+        title: "Wallet or User Missing",
+        description: "Please make sure you are logged in and your wallet is loaded.",
+        variant: "destructive"
+      })
+      return
+    }
+
     setIsLoading(true)
 
     // Check if recipient address is valid
@@ -73,17 +133,6 @@ export function Send() {
       toast({
         title: "Invalid Address",
         description: "Please enter a valid Algorand address (58 characters, alphanumeric).",
-        variant: "destructive"
-      })
-      setIsLoading(false)
-      return
-    }
-
-    // Ensure wallet and user are not null
-    if (!wallet || !user || !walletAddress) {
-      toast({
-        title: "Wallet or User Missing",
-        description: "Please make sure you are logged in and your wallet is loaded.",
         variant: "destructive"
       })
       setIsLoading(false)
@@ -283,25 +332,23 @@ export function Send() {
                 />
               </div>
 
-              {walletAddress && (
-                <div className="p-3 bg-muted rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                      <Wallet className="h-4 w-4" />
-                      <span>From: {safeFormatAddress(walletAddress)}</span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={generateQRCode}
-                      className="h-6 w-6"
-                    >
-                      <QrCode className="h-4 w-4" />
-                    </Button>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                    <Wallet className="h-4 w-4" />
+                    <span>From: {safeFormatAddress(walletAddress)}</span>
                   </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={generateQRCode}
+                    className="h-6 w-6"
+                  >
+                    <QrCode className="h-4 w-4" />
+                  </Button>
                 </div>
-              )}
+              </div>
 
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
