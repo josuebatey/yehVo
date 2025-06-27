@@ -7,6 +7,7 @@ import { useToast } from '../hooks/use-toast'
 import { ArrowLeft, Send as SendIcon, Wallet, QrCode, Camera, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTransactionStore } from '../store/transactions'
+import { algorandService } from '../services/algorand'
 
 export function Send() {
   const [recipientAddress, setRecipientAddress] = useState('')
@@ -29,10 +30,9 @@ export function Send() {
     return `${address.slice(0, 8)}...${address.slice(-8)}`
   }
 
-  // Utility to check if Algorand account exists (dev: allow any non-empty string)
+  // Utility to check if Algorand account exists using proper validation
   async function checkAlgorandAccountExists(address: string): Promise<boolean> {
-    // For development, allow any non-empty string
-    return !!address && address.length > 0
+    return algorandService.isValidAddress(address)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
