@@ -38,15 +38,13 @@ export function Dashboard() {
   const [lastTransactionCount, setLastTransactionCount] = useState(0)
   const [newReceivedCount, setNewReceivedCount] = useState(0)
 
-  // Safely check if we have valid data
+  // Simplified wallet validation - just check for address and privateKey
   const hasValidWallet = Boolean(
     wallet && 
     wallet.address && 
     typeof wallet.address === 'string' && 
-    wallet.address.length > 0 &&
-    wallet.privateKey &&
-    wallet.mnemonic &&
-    typeof wallet.mnemonic === 'string'
+    wallet.address.length === 58 && // Algorand addresses are exactly 58 characters
+    wallet.privateKey // Just check if privateKey exists, don't validate type
   )
   
   const hasValidUser = Boolean(
@@ -57,21 +55,40 @@ export function Dashboard() {
     typeof user.email === 'string'
   )
 
+  // Debug logging
+  useEffect(() => {
+    console.log('Dashboard Debug Info:')
+    console.log('- authLoading:', authLoading)
+    console.log('- hasValidUser:', hasValidUser)
+    console.log('- hasValidWallet:', hasValidWallet)
+    console.log('- user:', user ? { id: user.id, email: user.email } : null)
+    console.log('- wallet:', wallet ? { 
+      address: wallet.address, 
+      hasPrivateKey: !!wallet.privateKey,
+      hasMnemonic: !!wallet.mnemonic,
+      addressLength: wallet.address?.length 
+    } : null)
+  }, [authLoading, hasValidUser, hasValidWallet, user, wallet])
+
   useEffect(() => {
     // Don't proceed if we don't have user or if auth is still loading
     if (authLoading) {
+      console.log('Auth still loading, waiting...')
       return
     }
 
     if (!hasValidUser) {
+      console.log('No valid user, redirecting to login')
       navigate('/login')
       return
     }
 
     if (!hasValidWallet) {
+      console.log('No valid wallet, waiting for wallet to load...')
       // Don't redirect immediately, give it a moment for wallet to load
       const timer = setTimeout(() => {
         if (!wallet) {
+          console.log('Wallet still not available after timeout')
           toast({
             title: "Wallet Error",
             description: "Failed to load your wallet. Please try logging in again.",
@@ -85,6 +102,7 @@ export function Dashboard() {
 
     // Only proceed with data fetching if we have both user and wallet
     if (hasValidUser && hasValidWallet) {
+      console.log('Valid user and wallet found, fetching data...')
       fetchTransactions(user.id).catch(error => {
         console.error('Failed to fetch transactions:', error)
       })
@@ -182,7 +200,7 @@ export function Dashboard() {
           break
 
         case 'balance':
-          await voiceService.speak(`Your current balance is ${formatCurrency(balanceUsd)}.`)
+          await voiceService.speak(`Your current balance is ${formatCurrency(balanceUsd || 0)}.`)
           break
 
         case 'history':
@@ -314,8 +332,15 @@ export function Dashboard() {
           <LoadingSpinner size="lg" text="Loading your wallet..." />
           <p className="text-sm text-muted-foreground">
             Setting up your Algorand wallet...
-            {hasValidWallet} ???
           </p>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>Debug Info:</p>
+            <p>User ID: {user?.id}</p>
+            <p>Wallet exists: {wallet ? 'Yes' : 'No'}</p>
+            <p>Address: {wallet?.address || 'None'}</p>
+            <p>Address length: {wallet?.address?.length || 0}</p>
+            <p>Has private key: {wallet?.privateKey ? 'Yes' : 'No'}</p>
+          </div>
         </div>
       </div>
     )
