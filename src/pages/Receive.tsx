@@ -100,7 +100,7 @@ export function Receive() {
             <p className="text-sm">Debug Info:</p>
             <p className="text-xs font-mono">User: {user ? 'exists' : 'null'}</p>
             <p className="text-xs font-mono">Wallet: {wallet ? 'exists' : 'null'}</p>
-            <p className="text-xs font-mono">Address: {wallet?.address || 'none'}</p>
+            <p className="text-xs font-mono">Address: {String(wallet?.address || 'none')}</p>
           </div>
         </div>
       </div>
@@ -117,7 +117,7 @@ export function Receive() {
           <div className="p-4 bg-muted rounded-lg">
             <p className="text-sm">Debug Info:</p>
             <p className="text-xs font-mono">Wallet exists: {wallet ? 'yes' : 'no'}</p>
-            <p className="text-xs font-mono">Address: {wallet?.address || 'undefined'}</p>
+            <p className="text-xs font-mono">Address: {String(wallet?.address || 'undefined')}</p>
             <p className="text-xs font-mono">Address type: {typeof wallet?.address}</p>
             <p className="text-xs font-mono">Address length: {wallet?.address?.length || 0}</p>
           </div>

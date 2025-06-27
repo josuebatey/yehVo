@@ -301,7 +301,7 @@ export function Dashboard() {
             <p className="text-sm">Debug Info:</p>
             <p className="text-xs font-mono">User ID: {user?.id}</p>
             <p className="text-xs font-mono">Wallet: {wallet ? 'exists' : 'null'}</p>
-            <p className="text-xs font-mono">Address: {wallet?.address || 'none'}</p>
+            <p className="text-xs font-mono">Address: {String(wallet?.address || 'none')}</p>
           </div>
         </div>
       </div>
