@@ -86,22 +86,19 @@ class AlgorandService {
    * Send payment transaction
    */
   async sendPayment(
+    senderAddress: string,
     senderPrivateKey: Uint8Array,
     recipientAddress: string,
     amountMicroAlgos: number,
     note?: string
   ): Promise<string> {
     try {
-      const senderAccount = algosdk.mnemonicToSecretKey(
-        algosdk.secretKeyToMnemonic(senderPrivateKey)
-      )
-
       // Get suggested transaction parameters
       const suggestedParams = await this.algodClient.getTransactionParams().do()
 
       // Create payment transaction
       const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        from: senderAccount.addr,
+        from: senderAddress,
         to: recipientAddress,
         amount: amountMicroAlgos,
         note: note ? new Uint8Array(Buffer.from(note)) : undefined,

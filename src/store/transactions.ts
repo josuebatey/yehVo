@@ -170,8 +170,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       // Convert USD to microAlgos
       const amountMicroAlgos = await algorandService.usdToMicroAlgos(amountUsd)
       
-      // Send transaction
+      // Send transaction - now passing senderAddress as the first parameter
       const txHash = await algorandService.sendPayment(
+        senderAddress,
         privateKey,
         recipientAddress,
         amountMicroAlgos,
