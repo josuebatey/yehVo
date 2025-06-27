@@ -167,12 +167,32 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
   sendPayment: async ({recipientAddress, amountUsd, privateKey, userId, senderAddress}: ISendPayment) => {
     try {
+      // Validate inputs
+      if (!recipientAddress || typeof recipientAddress !== 'string') {
+        throw new Error('Invalid recipient address')
+      }
+
+      if (!amountUsd || amountUsd <= 0) {
+        throw new Error('Invalid amount')
+      }
+
+      if (!privateKey || !(privateKey instanceof Uint8Array)) {
+        throw new Error('Invalid private key')
+      }
+
+      if (!userId || typeof userId !== 'string') {
+        throw new Error('Invalid user ID')
+      }
+
+      if (!senderAddress || typeof senderAddress !== 'string') {
+        throw new Error('Invalid sender address')
+      }
+
       // Convert USD to microAlgos
       const amountMicroAlgos = await algorandService.usdToMicroAlgos(amountUsd)
       
-      // Send transaction - now passing senderAddress as the first parameter
+      // Send transaction - using the original method signature (without senderAddress parameter)
       const txHash = await algorandService.sendPayment(
-        senderAddress,
         privateKey,
         recipientAddress,
         amountMicroAlgos,
