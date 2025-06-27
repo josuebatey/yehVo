@@ -72,6 +72,17 @@ export function Dashboard() {
     return balance.toFixed(6)
   }
 
+  // Safe function to convert any value to a string for display
+  const safeStringify = (value: any): string => {
+    if (value === null || value === undefined) return 'undefined'
+    if (typeof value === 'string') return value
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+    if (value instanceof Uint8Array) return `Uint8Array(${value.length})`
+    if (Array.isArray(value)) return `Array(${value.length})`
+    if (typeof value === 'object') return JSON.stringify(value)
+    return String(value)
+  }
+
   // Debug logging with safe string conversion
   useEffect(() => {
     console.log('Dashboard Debug Info:')
@@ -359,12 +370,12 @@ export function Dashboard() {
           </p>
           <div className="text-xs text-muted-foreground space-y-1 p-4 bg-muted rounded-lg">
             <p className="font-semibold">Debug Info:</p>
-            <p>User ID: {user?.id || 'None'}</p>
+            <p>User ID: {safeStringify(user?.id)}</p>
             <p>Wallet exists: {wallet ? 'Yes' : 'No'}</p>
-            <p>Address: {wallet?.address || 'None'}</p>
-            <p>Address length: {wallet?.address?.length || 0}</p>
+            <p>Address: {safeStringify(wallet?.address)}</p>
+            <p>Address length: {safeStringify(wallet?.address?.length)}</p>
             <p>Has private key: {wallet?.privateKey ? 'Yes' : 'No'}</p>
-            <p>Private key type: {wallet?.privateKey ? typeof wallet.privateKey : 'undefined'}</p>
+            <p>Private key type: {safeStringify(wallet?.privateKey ? typeof wallet.privateKey : undefined)}</p>
           </div>
         </div>
       </div>
