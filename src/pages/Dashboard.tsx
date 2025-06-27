@@ -21,8 +21,11 @@ export function Dashboard() {
   const navigate = useNavigate()
   const { user, wallet } = useAuthStore()
 
-  console.info(user)
-  console.info(formatAddress(wallet.address))
+  // Debug logging to understand the wallet state
+  console.log('Dashboard - User:', user)
+  console.log('Dashboard - Wallet:', wallet)
+  console.log('Dashboard - Wallet address:', wallet?.address)
+
   const { 
     transactions, 
     balance, 
@@ -304,8 +307,8 @@ export function Dashboard() {
           <div className="flex items-center justify-between z-10 min-w-0">
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center min-w-0">
-                <span className="border text-xs font-mono tracking-widest text-yellow-900/70 dark:text-yellow-900/80 break-all min-w-0">
-                  {wallet?.address ? formatAddress(wallet.address) : 'Loading...'}#
+                <span className="text-xs font-mono tracking-widest text-yellow-900/70 dark:text-yellow-900/80 break-all min-w-0">
+                  {wallet?.address ? formatAddress(wallet.address) : 'Loading...'}
                 </span>
                 <Button
                   variant="ghost"

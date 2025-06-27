@@ -155,7 +155,7 @@ export const useAuthStore = create<AuthState>()(
             .eq("id", authData.user.id)
             .single();
 
-            console.log("USER  ERROR", userError);
+          console.log("USER ERROR", userError);
           
           let finalUserData = userData;
           
@@ -289,15 +289,19 @@ export const useAuthStore = create<AuthState>()(
             const wallet = algorandService.restoreWallet(decryptedSeed);
 
             // Initialize RevenueCat and check Pro status
-            await revenueCatService.initialize(session.user.id);
-            const isPro = await revenueCatService.isProUser();
+            try {
+              await revenueCatService.initialize(session.user.id);
+              const isPro = await revenueCatService.isProUser();
+            } catch (rcError) {
+              console.warn("RevenueCat initialization failed:", rcError);
+            }
 
             set({
               user: {
                 id: userData.id,
                 email: userData.email,
                 algorandAddress: userData.algorand_address,
-                isPro: isPro || userData.is_pro,
+                isPro: userData.is_pro || false,
                 createdAt: userData.created_at,
               },
               wallet,
@@ -347,27 +351,42 @@ export const useAuthStore = create<AuthState>()(
         wallet: state.wallet,
         isAuthenticated: state.isAuthenticated,
       }),
-      serialize: (state) => {
-        // Convert Uint8Array to regular array for JSON serialization
-        const serializedState = {
-          ...state,
-          state: {
-            ...state.state,
-            wallet: state.state.wallet ? {
-              ...state.state.wallet,
-              privateKey: Array.from(state.state.wallet.privateKey)
-            } : null
+      storage: {
+        getItem: (name) => {
+          const str = localStorage.getItem(name);
+          if (!str) return null;
+          
+          try {
+            const parsed = JSON.parse(str);
+            // Convert privateKey array back to Uint8Array if it exists
+            if (parsed.state?.wallet?.privateKey && Array.isArray(parsed.state.wallet.privateKey)) {
+              parsed.state.wallet.privateKey = new Uint8Array(parsed.state.wallet.privateKey);
+            }
+            return parsed;
+          } catch (error) {
+            console.error('Error parsing stored auth data:', error);
+            return null;
           }
-        };
-        return JSON.stringify(serializedState);
-      },
-      deserialize: (str) => {
-        const parsed = JSON.parse(str);
-        // Convert regular array back to Uint8Array
-        if (parsed.state.wallet && parsed.state.wallet.privateKey) {
-          parsed.state.wallet.privateKey = new Uint8Array(parsed.state.wallet.privateKey);
-        }
-        return parsed;
+        },
+        setItem: (name, value) => {
+          try {
+            // Convert Uint8Array to regular array for JSON serialization
+            const serializable = {
+              ...value,
+              state: {
+                ...value.state,
+                wallet: value.state.wallet ? {
+                  ...value.state.wallet,
+                  privateKey: Array.from(value.state.wallet.privateKey)
+                } : null
+              }
+            };
+            localStorage.setItem(name, JSON.stringify(serializable));
+          } catch (error) {
+            console.error('Error storing auth data:', error);
+          }
+        },
+        removeItem: (name) => localStorage.removeItem(name),
       },
     }
   )
