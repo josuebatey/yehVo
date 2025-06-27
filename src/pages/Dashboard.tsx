@@ -22,13 +22,6 @@ export function Dashboard() {
   const { user, wallet, isLoading: authLoading } = useAuthStore()
   const { toast } = useToast()
 
-  // Debug logging to understand the wallet state
-  console.log('Dashboard - User:', user)
-  console.log('Dashboard - Wallet:', wallet)
-  console.log('Dashboard - Auth Loading:', authLoading)
-  console.log('Dashboard - Wallet type:', typeof wallet)
-  console.log('Dashboard - Wallet address:', wallet?.address)
-
   const { 
     transactions, 
     balance, 
@@ -58,22 +51,18 @@ export function Dashboard() {
   useEffect(() => {
     // Don't proceed if we don't have user or if auth is still loading
     if (authLoading) {
-      console.log('Auth still loading, waiting...')
       return
     }
 
     if (!hasValidUser) {
-      console.log('No valid user, redirecting to login')
       navigate('/login')
       return
     }
 
     if (!hasValidWallet) {
-      console.log('No valid wallet found, user:', user)
       // Don't redirect immediately, give it a moment for wallet to load
       const timer = setTimeout(() => {
         if (!wallet) {
-          console.error('Wallet failed to load after timeout')
           toast({
             title: "Wallet Error",
             description: "Failed to load your wallet. Please try logging in again.",
@@ -87,8 +76,6 @@ export function Dashboard() {
 
     // Only proceed with data fetching if we have both user and wallet
     if (hasValidUser && hasValidWallet) {
-      console.log('Fetching data for user:', user.id, 'wallet:', wallet.address)
-      
       fetchTransactions(user.id).catch(error => {
         console.error('Failed to fetch transactions:', error)
       })
@@ -297,12 +284,6 @@ export function Dashboard() {
           <p className="text-sm text-muted-foreground">
             Setting up your Algorand wallet...
           </p>
-          <div className="mt-4 p-4 bg-muted rounded-lg">
-            <p className="text-sm">Debug Info:</p>
-            <p className="text-xs font-mono">User ID: {user?.id}</p>
-            <p className="text-xs font-mono">Wallet: {wallet ? 'exists' : 'null'}</p>
-            <p className="text-xs font-mono">Address: {String(wallet?.address || 'none')}</p>
-          </div>
         </div>
       </div>
     )
@@ -420,7 +401,7 @@ export function Dashboard() {
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center min-w-0">
                 <span className="text-xs font-mono tracking-widest text-yellow-900/70 dark:text-yellow-900/80 break-all min-w-0">
-                  {wallet?.address ? formatAddress(wallet.address) : 'Loading...'}
+                  {formatAddress(wallet.address)}
                 </span>
                 <Button
                   variant="ghost"
