@@ -67,7 +67,7 @@ export default defineConfig({
       '@algorandfoundation/algokit-utils',
       'qrcode'
     ],
-    exclude: []
+    exclude: ['algosdk/client']
   },
   build: {
     commonjsOptions: {
