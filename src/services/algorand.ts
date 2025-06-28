@@ -136,16 +136,16 @@ class AlgorandService {
         privateKeyLength: senderPrivateKey.length
       })
 
-      // Derive the account from private key to ensure consistency
-      const senderAccount = algosdk.mnemonicToSecretKey(
-        algosdk.secretKeyToMnemonic(senderPrivateKey)
-      )
+      // Derive the address from the private key to ensure consistency
+      // Extract the public key from the private key (first 32 bytes are the private key, last 32 bytes are the public key)
+      const publicKey = senderPrivateKey.slice(32, 64)
+      const derivedAddressFromPrivateKey = algosdk.encodeAddress(publicKey)
 
       // Verify that the derived address matches the provided sender address
-      if (senderAccount.addr !== cleanSenderAddress) {
+      if (derivedAddressFromPrivateKey !== cleanSenderAddress) {
         console.error('Address mismatch:', {
           provided: cleanSenderAddress,
-          derived: senderAccount.addr
+          derived: derivedAddressFromPrivateKey
         })
         throw new Error('Sender address does not match the private key')
       }
