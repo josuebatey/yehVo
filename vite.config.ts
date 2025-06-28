@@ -56,7 +56,8 @@ export default defineConfig({
     }
   },
   define: {
-    global: 'globalThis'
+    global: 'globalThis',
+    Buffer: ['buffer', 'Buffer']
   },
   optimizeDeps: {
     include: [
@@ -64,7 +65,8 @@ export default defineConfig({
       'tweetnacl',
       'json-bigint',
       '@algorandfoundation/algokit-utils',
-      'qrcode'
+      'qrcode',
+      'buffer'
     ],
     exclude: [
       'algosdk/client'
@@ -72,7 +74,7 @@ export default defineConfig({
   },
   build: {
     commonjsOptions: {
-      include: [/algosdk/, /tweetnacl/, /json-bigint/, /qrcode/, /node_modules/],
+      include: [/algosdk/, /tweetnacl/, /json-bigint/, /qrcode/, /buffer/, /node_modules/],
       transformMixedEsModules: true
     }
   },
