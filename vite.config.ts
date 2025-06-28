@@ -66,6 +66,9 @@ export default defineConfig({
       'json-bigint',
       '@algorandfoundation/algokit-utils',
       'qrcode'
+    ],
+    exclude: [
+      'algosdk/client'
     ]
   },
   build: {
