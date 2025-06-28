@@ -17,6 +17,7 @@
     "@radix-ui/react-switch": "^1.0.3",
     "@supabase/supabase-js": "^2.39.3",
     "algosdk": "^2.7.0",
+    "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "json-bigint": "^1.0.0",
