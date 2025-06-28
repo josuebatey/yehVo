@@ -26,6 +26,12 @@ export function Send() {
   // Use user.algorandAddress as the primary source of truth
   const walletAddress = user?.algorandAddress || wallet?.address
 
+  // Check if wallet is fully loaded with valid private key
+  const isWalletValid = wallet && 
+    wallet.privateKey && 
+    wallet.privateKey instanceof Uint8Array && 
+    wallet.privateKey.length === 64
+
   // Show loading state while authentication is being checked
   if (authLoading) {
     return (
@@ -76,6 +82,30 @@ export function Send() {
     )
   }
 
+  // Show wallet validation error if wallet or private key is invalid
+  if (!isWalletValid) {
+    return (
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="text-center py-8">
+            <h2 className="text-xl font-semibold mb-2">Wallet Setup Incomplete</h2>
+            <p className="text-muted-foreground mb-4">
+              Your wallet private key is not properly loaded. Please log out and log back in to refresh your wallet.
+            </p>
+            <div className="space-y-2">
+              <Button asChild className="w-full">
+                <Link to="/dashboard">Back to Dashboard</Link>
+              </Button>
+              <Button variant="outline" asChild className="w-full">
+                <Link to="/login">Re-login</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   // Utility function to safely format address
   const safeFormatAddress = (address: string | undefined | null): string => {
     if (!address || typeof address !== 'string' || address.length < 16) {
@@ -115,11 +145,11 @@ export function Send() {
       return
     }
 
-    // Additional validation to ensure all required data is present
-    if (!wallet || !user || !walletAddress) {
+    // Additional validation to ensure all required data is present and valid
+    if (!wallet || !user || !walletAddress || !isWalletValid) {
       toast({
-        title: "Wallet or User Missing",
-        description: "Please make sure you are logged in and your wallet is loaded.",
+        title: "Wallet Setup Error",
+        description: "Your wallet is not properly configured. Please refresh the page or log in again.",
         variant: "destructive"
       })
       return
