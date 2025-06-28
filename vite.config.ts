@@ -62,6 +62,7 @@ export default defineConfig({
     include: [
       'buffer',
       'algosdk',
+      'algosdk/client',
       'tweetnacl',
       'json-bigint',
       '@algorandfoundation/algokit-utils',
