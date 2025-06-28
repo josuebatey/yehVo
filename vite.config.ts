@@ -53,17 +53,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      'algosdk/client': 'algosdk',
-      buffer: 'buffer'
     }
   },
   define: {
-    global: 'globalThis',
-    'process.env': {}
+    global: 'globalThis'
   },
   optimizeDeps: {
     include: [
-      'buffer',
       'algosdk',
       'tweetnacl',
       'json-bigint',
