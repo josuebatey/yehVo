@@ -53,6 +53,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'algosdk/client': 'algosdk'
     }
   },
   define: {
@@ -66,9 +67,6 @@ export default defineConfig({
       'json-bigint',
       '@algorandfoundation/algokit-utils',
       'qrcode'
-    ],
-    exclude: [
-      'algosdk/client'
     ]
   },
   build: {
