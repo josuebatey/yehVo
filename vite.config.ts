@@ -60,7 +60,7 @@ export default defineConfig({
   define: {
     global: 'globalThis',
     'process.env': {},
-    'globalThis.Buffer': 'Buffer'
+    Buffer: 'Buffer'
   },
   optimizeDeps: {
     include: [
