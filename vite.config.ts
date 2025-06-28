@@ -59,8 +59,7 @@ export default defineConfig({
   },
   define: {
     global: 'globalThis',
-    'process.env': {},
-    Buffer: 'Buffer'
+    'process.env': {}
   },
   optimizeDeps: {
     include: [
