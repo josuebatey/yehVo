@@ -63,6 +63,19 @@ class AlgorandService {
   }
 
   /**
+   * Derive address from private key
+   */
+  private deriveAddressFromPrivateKey(privateKey: Uint8Array): string {
+    try {
+      // Extract the public key from the private key (last 32 bytes)
+      const publicKey = privateKey.slice(32, 64)
+      return algosdk.encodeAddress(publicKey)
+    } catch (error) {
+      throw new Error('Failed to derive address from private key')
+    }
+  }
+
+  /**
    * Get account balance in microAlgos
    */
   async getBalance(address: string): Promise<number> {
@@ -93,69 +106,55 @@ class AlgorandService {
     note?: string
   ): Promise<string> {
     try {
-      // Enhanced input validation with better error messages
-      if (!senderPrivateKey) {
-        throw new Error('Sender private key is required')
-      }
-      
-      if (!(senderPrivateKey instanceof Uint8Array)) {
-        throw new Error('Sender private key must be a Uint8Array')
+      // Validate private key
+      if (!senderPrivateKey || !(senderPrivateKey instanceof Uint8Array)) {
+        throw new Error('Invalid private key: must be a Uint8Array')
       }
 
-      if (!senderAddress || typeof senderAddress !== 'string' || senderAddress.trim().length === 0) {
-        throw new Error('Sender address is required and must be a valid string')
+      if (senderPrivateKey.length !== 64) {
+        throw new Error('Invalid private key: must be 64 bytes long')
       }
 
+      // Derive the authoritative sender address from the private key
+      const derivedSenderAddress = this.deriveAddressFromPrivateKey(senderPrivateKey)
+
+      // Validate the derived address
+      if (!this.isValidAddress(derivedSenderAddress)) {
+        throw new Error('Failed to derive valid sender address from private key')
+      }
+
+      // If senderAddress is provided, verify it matches the derived address
+      if (senderAddress && senderAddress.trim() !== derivedSenderAddress) {
+        console.warn('Provided sender address does not match derived address, using derived address')
+      }
+
+      // Validate recipient address
       if (!recipientAddress || typeof recipientAddress !== 'string' || recipientAddress.trim().length === 0) {
         throw new Error('Recipient address is required and must be a valid string')
       }
 
-      if (!amountMicroAlgos || typeof amountMicroAlgos !== 'number' || amountMicroAlgos <= 0) {
-        throw new Error('Amount must be a positive number')
-      }
-
-      console.info(recipientAddress)
-
-      // Clean addresses
-      const cleanSenderAddress = senderAddress.trim()
       const cleanRecipientAddress = recipientAddress.trim()
-
-      // Validate Algorand addresses
-      if (!this.isValidAddress(cleanSenderAddress)) {
-        throw new Error(`Invalid sender address format: ${cleanSenderAddress}`)
-      }
-
       if (!this.isValidAddress(cleanRecipientAddress)) {
         throw new Error(`Invalid recipient address format: ${cleanRecipientAddress}`)
       }
 
-      console.log('Sending payment with validated params:', {
-        senderAddress: cleanSenderAddress,
-        recipientAddress: cleanRecipientAddress,
-        amountMicroAlgos,
-        privateKeyLength: senderPrivateKey.length
-      })
-
-      // Derive the address from the private key to ensure consistency
-      // Extract the public key from the private key (first 32 bytes are the private key, last 32 bytes are the public key)
-      const publicKey = senderPrivateKey.slice(32, 64)
-      const derivedAddressFromPrivateKey = algosdk.encodeAddress(publicKey)
-
-      // Verify that the derived address matches the provided sender address
-      if (derivedAddressFromPrivateKey !== cleanSenderAddress) {
-        console.error('Address mismatch:', {
-          provided: cleanSenderAddress,
-          derived: derivedAddressFromPrivateKey
-        })
-        throw new Error('Sender address does not match the private key')
+      // Validate amount
+      if (!amountMicroAlgos || typeof amountMicroAlgos !== 'number' || amountMicroAlgos <= 0) {
+        throw new Error('Amount must be a positive number')
       }
+
+      console.log('Sending payment with validated params:', {
+        senderAddress: derivedSenderAddress,
+        recipientAddress: cleanRecipientAddress,
+        amountMicroAlgos
+      })
 
       // Get suggested transaction parameters
       const suggestedParams = await this.algodClient.getTransactionParams().do()
 
-      // Create payment transaction with validated addresses
+      // Create payment transaction using the derived sender address
       const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        from: cleanSenderAddress,
+        from: derivedSenderAddress,
         to: cleanRecipientAddress,
         amount: amountMicroAlgos,
         note: note ? new Uint8Array(Buffer.from(note)) : undefined,
@@ -173,7 +172,7 @@ class AlgorandService {
 
       console.log('Payment successful:', {
         txId,
-        from: cleanSenderAddress,
+        from: derivedSenderAddress,
         to: cleanRecipientAddress,
         amount: amountMicroAlgos
       })
@@ -195,8 +194,8 @@ class AlgorandService {
           throw new Error('Transaction timeout: Please try again')
         } else if (error.message.includes('fee')) {
           throw new Error('Transaction fee error: Insufficient funds for fees')
-        } else if (error.message.includes('required') || error.message.includes('format')) {
-          // Re-throw validation errors as-is
+        } else if (error.message.includes('private key') || error.message.includes('derive')) {
+          // Re-throw private key and derivation errors as-is
           throw error
         } else {
           // Re-throw with the original error message for better debugging
