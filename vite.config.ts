@@ -57,7 +57,8 @@ export default defineConfig({
     }
   },
   define: {
-    global: 'globalThis'
+    global: 'globalThis',
+    Buffer: 'buffer'
   },
   optimizeDeps: {
     include: [
