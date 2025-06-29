@@ -7,7 +7,7 @@ import { useToast } from '../hooks/use-toast'
 import { ArrowLeft, Send as SendIcon, Wallet, QrCode, Camera, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTransactionStore } from '../store/transactions'
-import { algorandService } from '../services/algorand'
+import { paymentService } from '../services/payment'
 import { formatAddress } from '../lib/utils'
 
 export function Send() {
@@ -17,20 +17,13 @@ export function Send() {
   const [showQRScanner, setShowQRScanner] = useState(false)
   const [showQRCode, setShowQRCode] = useState(false)
   
-  const { user, wallet, authLoading } = useAuthStore()
+  const { user, wallet, isLoading: authLoading } = useAuthStore()
   const { toast } = useToast()
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { sendPayment } = useTransactionStore()
 
-  // Use user.algorandAddress as the primary source of truth
-  const walletAddress = user?.algorandAddress || wallet?.address
-
-  // Check if wallet is fully loaded with valid private key
-  const isWalletValid = wallet && 
-    wallet.privateKey && 
-    wallet.privateKey instanceof Uint8Array && 
-    wallet.privateKey.length === 64
+  const walletAddress = user?.walletAddress || wallet?.address
 
   // Show loading state while authentication is being checked
   if (authLoading) {
@@ -82,44 +75,12 @@ export function Send() {
     )
   }
 
-  // Show wallet validation error if wallet or private key is invalid
-  if (!isWalletValid) {
-    return (
-      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="text-center py-8">
-            <h2 className="text-xl font-semibold mb-2">Wallet Setup Incomplete</h2>
-            <p className="text-muted-foreground mb-4">
-              Your wallet private key is not properly loaded. Please log out and log back in to refresh your wallet.
-            </p>
-            <div className="space-y-2">
-              <Button asChild className="w-full">
-                <Link to="/dashboard">Back to Dashboard</Link>
-              </Button>
-              <Button variant="outline" asChild className="w-full">
-                <Link to="/login">Re-login</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   // Utility function to safely format address
   const safeFormatAddress = (address: string | undefined | null): string => {
     if (!address || typeof address !== 'string' || address.length < 16) {
       return 'Invalid Address'
     }
     return formatAddress(address)
-  }
-
-  // Utility to check if Algorand account exists using proper validation
-  async function checkAlgorandAccountExists(address: string): Promise<boolean> {
-    if (!address || typeof address !== 'string') {
-      return false
-    }
-    return algorandService.isValidAddress(address.trim())
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -145,8 +106,7 @@ export function Send() {
       return
     }
 
-    // Additional validation to ensure all required data is present and valid
-    if (!wallet || !user || !walletAddress || !isWalletValid) {
+    if (!user || !walletAddress) {
       toast({
         title: "Wallet Setup Error",
         description: "Your wallet is not properly configured. Please refresh the page or log in again.",
@@ -158,11 +118,11 @@ export function Send() {
     setIsLoading(true)
 
     // Check if recipient address is valid
-    const isValidAddress = await checkAlgorandAccountExists(trimmedRecipient)
+    const isValidAddress = paymentService.isValidAddress(trimmedRecipient)
     if (!isValidAddress) {
       toast({
         title: "Invalid Address",
-        description: "Please enter a valid Algorand address (58 characters, alphanumeric).",
+        description: "Please enter a valid wallet address (58 characters, alphanumeric).",
         variant: "destructive"
       })
       setIsLoading(false)
@@ -170,11 +130,9 @@ export function Send() {
     }
 
     try {
-      // Use the actual recipient address from the form, not a mock one
       const txHash = await sendPayment({
-        recipientAddress: trimmedRecipient, // Use the actual input
+        recipientAddress: trimmedRecipient,
         amountUsd: parseFloat(amount),
-        privateKey: wallet.privateKey,
         userId: user.id,
         senderAddress: walletAddress
       })
@@ -247,16 +205,9 @@ export function Send() {
       context.drawImage(video, 0, 0, canvas.width, canvas.height)
 
       try {
-        // Simple QR code detection (in a real app, you'd use a library like jsQR)
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
-        
-        // For now, we'll simulate QR detection
-        // In production, use: import jsQR from 'jsqr'
-        // const code = jsQR(imageData.data, imageData.width, imageData.height)
-        
-        // Simulate finding a QR code with an Algorand address
+        // Simulate finding a QR code with a wallet address
         if (Math.random() < 0.01) { // 1% chance per frame to simulate detection
-          const mockAddress = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+          const mockAddress = paymentService.createWallet().address
           setRecipientAddress(mockAddress)
           stopQRScanner()
           toast({
@@ -303,7 +254,7 @@ export function Send() {
               <div>
                 <CardTitle className="text-2xl">Send Money</CardTitle>
                 <CardDescription>
-                  Transfer funds to another Algorand wallet
+                  Transfer funds to another wallet
                 </CardDescription>
               </div>
             </div>
@@ -320,7 +271,7 @@ export function Send() {
                     type="text"
                     value={recipientAddress}
                     onChange={(e) => setRecipientAddress(e.target.value)}
-                    placeholder="Enter Algorand wallet address (58 characters)"
+                    placeholder="Enter wallet address (58 characters)"
                     required
                     disabled={isLoading}
                     className="flex-1 font-mono text-sm"
@@ -338,8 +289,8 @@ export function Send() {
                 </div>
                 {recipientAddress && (
                   <p className="text-xs text-muted-foreground">
-                    {algorandService.isValidAddress(recipientAddress.trim()) 
-                      ? "✓ Valid Algorand address" 
+                    {paymentService.isValidAddress(recipientAddress.trim()) 
+                      ? "✓ Valid wallet address" 
                       : "✗ Invalid address format"}
                   </p>
                 )}
@@ -431,7 +382,7 @@ export function Send() {
               </div>
             </div>
             <p className="text-sm text-gray-600 mt-2 text-center">
-              Point your camera at a QR code containing an Algorand address
+              Point your camera at a QR code containing a wallet address
             </p>
           </div>
         </div>

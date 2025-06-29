@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Wallet, Send, QrCode, History, TrendingUp, Crown, RefreshCw, Bell, Copy, Settings } from 'lucide-react'
+import { Wallet, Send, QrCode, History, TrendingUp, Crown, RefreshCw, Bell, Copy, Plus } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { VoiceButton } from '../components/VoiceButton'
@@ -30,6 +30,7 @@ export function Dashboard() {
     stopRealtimeUpdates,
     startPolling,
     stopPolling,
+    addTestFunds,
     isLoading: transactionLoading
   } = useTransactionStore()
   
@@ -38,28 +39,24 @@ export function Dashboard() {
   const [lastTransactionCount, setLastTransactionCount] = useState(0)
   const [newReceivedCount, setNewReceivedCount] = useState(0)
 
-  // Use user.algorandAddress as the primary source of truth
-  const walletAddress = user?.algorandAddress || wallet?.address
+  // Use user.walletAddress as the primary source of truth
+  const walletAddress = user?.walletAddress || wallet?.address
   
-  // Enhanced validation with better error handling
+  // Enhanced validation
   const hasValidUser = Boolean(
     user && 
     user.id && 
     typeof user.id === 'string' &&
     user.email &&
     typeof user.email === 'string' &&
-    user.algorandAddress &&
-    typeof user.algorandAddress === 'string' &&
-    user.algorandAddress.length === 58 // Algorand addresses are exactly 58 characters
+    user.walletAddress &&
+    typeof user.walletAddress === 'string' &&
+    user.walletAddress.length === 58
   )
   
-  const hasValidWallet = Boolean(
-    wallet && 
-    wallet.privateKey && // Check if privateKey exists
-    (wallet.privateKey instanceof Uint8Array || Array.isArray(wallet.privateKey)) // Accept both types
-  )
+  const hasValidWallet = Boolean(wallet && wallet.address)
 
-  // Safe formatting functions to prevent React rendering errors
+  // Safe formatting functions
   const safeFormatCurrency = (amount: number | null | undefined): string => {
     if (typeof amount !== 'number' || isNaN(amount)) return '$0.00'
     return formatCurrency(amount)
@@ -75,30 +72,7 @@ export function Dashboard() {
     return balance.toFixed(6)
   }
 
-  // Debug logging with safe string conversion
   useEffect(() => {
-    console.log('Dashboard Debug Info:')
-    console.log('- authLoading:', authLoading)
-    console.log('- hasValidUser:', hasValidUser)
-    console.log('- hasValidWallet:', hasValidWallet)
-    console.log('- walletAddress:', walletAddress)
-    console.log('- user:', user ? { 
-      id: user.id, 
-      email: user.email,
-      algorandAddress: user.algorandAddress,
-      isPro: user.isPro 
-    } : 'null')
-    console.log('- wallet:', wallet ? { 
-      hasPrivateKey: !!wallet.privateKey,
-      hasMnemonic: !!wallet.mnemonic,
-      privateKeyType: wallet.privateKey ? typeof wallet.privateKey : 'undefined'
-    } : 'null')
-    console.log('- balance:', balance)
-    console.log('- balanceUsd:', balanceUsd)
-  }, [authLoading, hasValidUser, hasValidWallet, user, wallet, balance, balanceUsd, walletAddress])
-
-  useEffect(() => {
-    // Don't proceed if we don't have user or if auth is still loading
     if (authLoading) {
       console.log('Auth still loading, waiting...')
       return
@@ -120,7 +94,6 @@ export function Dashboard() {
       return
     }
 
-    // Proceed with data fetching using user.algorandAddress
     console.log('Valid user found, fetching data with address:', walletAddress)
     fetchTransactions(user.id).catch(error => {
       console.error('Failed to fetch transactions:', error)
@@ -133,7 +106,7 @@ export function Dashboard() {
     // Start real-time updates
     startRealtimeUpdates(user.id)
     
-    // Also start polling as a fallback (every 10 seconds)
+    // Also start polling as a fallback
     startPolling(user.id, walletAddress)
 
     // Cleanup function
@@ -190,7 +163,7 @@ export function Dashboard() {
         fetchTransactions(user.id),
         fetchBalance(walletAddress)
       ])
-      setNewReceivedCount(0) // Clear notification count
+      setNewReceivedCount(0)
       toast({
         title: "Refreshed!",
         description: "Transaction history and balance updated.",
@@ -200,6 +173,24 @@ export function Dashboard() {
       toast({
         title: "Refresh Failed",
         description: "Failed to update data. Please try again.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleAddTestFunds = async () => {
+    if (!walletAddress) return
+
+    try {
+      await addTestFunds(walletAddress, 50) // Add $50 test funds
+      toast({
+        title: "Test Funds Added!",
+        description: "Added $50 to your wallet for testing.",
+      })
+    } catch (error) {
+      toast({
+        title: "Failed to Add Funds",
+        description: "Could not add test funds. Please try again.",
         variant: "destructive"
       })
     }
@@ -262,13 +253,11 @@ export function Dashboard() {
       await voiceService.speak(`Sending ${safeFormatCurrency(amountUsd)} to ${recipient}. Please wait...`)
 
       // For demo purposes, we'll use a mock recipient address
-      // In a real app, you'd resolve the recipient name to an address
       const recipientAddress = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
       const txHash = await sendPayment({
         recipientAddress,
         amountUsd,
-        privateKey: wallet.privateKey,
         userId: user.id,
         senderAddress: walletAddress
       })
@@ -306,7 +295,7 @@ export function Dashboard() {
       await navigator.clipboard.writeText(walletAddress)
       toast({
         title: 'Address Copied',
-        description: 'Your Algorand address has been copied to clipboard.'
+        description: 'Your wallet address has been copied to clipboard.'
       })
     } catch (error) {
       toast({
@@ -348,15 +337,8 @@ export function Dashboard() {
         <div className="text-center space-y-4">
           <LoadingSpinner size="lg" text="Loading your wallet..." />
           <p className="text-sm text-muted-foreground">
-            Setting up your Algorand wallet...
+            Setting up your wallet...
           </p>
-          <div className="text-xs text-muted-foreground space-y-1 p-4 bg-muted rounded-lg">
-            <p className="font-semibold">Debug Info:</p>
-            <p>User ID: {user?.id || 'N/A'}</p>
-            <p>User Algorand Address: {user?.algorandAddress || 'N/A'}</p>
-            <p>Wallet exists: {wallet ? 'Yes' : 'No'}</p>
-            <p>Wallet Address: {wallet?.address || 'N/A'}</p>
-          </div>
         </div>
       </div>
     )
@@ -402,6 +384,15 @@ export function Dashboard() {
           >
             <RefreshCw className={`h-4 w-4 ${transactionLoading ? 'animate-spin' : ''}`} />
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAddTestFunds}
+            className="text-green-600 border-green-600 hover:bg-green-50"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Test Funds
+          </Button>
           <VoiceButton 
             onCommand={handleVoiceCommand}
             disabled={isProcessingPayment}
@@ -409,13 +400,13 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Balance Card as Golden Debit Card */}
+      {/* Balance Card */}
       <div className="w-full flex justify-center">
         <div
           className="relative w-full max-w-md aspect-[16/9] rounded-2xl shadow-xl flex flex-col justify-between p-4 sm:p-6 sm:pb-10 bg-gradient-to-br from-yellow-400 via-yellow-300 to-yellow-600 dark:from-yellow-500 dark:via-yellow-400 dark:to-yellow-700 text-yellow-900 dark:text-yellow-900 min-w-0"
           style={{ backgroundImage: 'linear-gradient(135deg, #FFD700 0%, #FFF7AE 60%, #B8860B 100%)' }}
         >
-          {/* Motif: subtle lines or watermark */}
+          {/* Motif */}
           <svg className="absolute inset-0 w-full h-full opacity-10 pointer-events-none" viewBox="0 0 400 225" fill="none">
             <defs>
               <linearGradient id="goldLines" x1="0" y1="0" x2="400" y2="225" gradientUnits="userSpaceOnUse">
@@ -428,9 +419,8 @@ export function Dashboard() {
             <circle cx="320" cy="180" r="40" fill="#fff" fillOpacity="0.07" />
           </svg>
           
-          {/* Top Row: Chip/Icon and Badge */}
+          {/* Top Row */}
           <div className="flex items-center justify-between z-10">
-            {/* Chip Icon */}
             <div className="flex items-center">
               <svg width="36" height="24" viewBox="0 0 36 24" fill="none" className="mr-2">
                 <rect x="2" y="4" width="32" height="16" rx="4" fill="#fff" fillOpacity="0.7" />
@@ -438,8 +428,7 @@ export function Dashboard() {
               </svg>
               <span className="font-semibold text-lg tracking-wide">VoicePay</span>
             </div>
-            {/* Debit Badge */}
-            <span className="px-3 py-1 rounded-full bg-yellow-900/80 text-yellow-100 text-xs font-bold tracking-widest shadow">DEBIT</span>
+            <span className="px-3 py-1 rounded-full bg-yellow-900/80 text-yellow-100 text-xs font-bold tracking-widest shadow">WALLET</span>
           </div>
           
           {/* Center: Balance */}
@@ -448,11 +437,11 @@ export function Dashboard() {
               {safeFormatCurrency(balanceUsd)}
             </div>
             <div className="text-base font-medium text-yellow-900/80 dark:text-yellow-900/90 mb-2">
-              {safeFormatBalance(balance)} ALGO
+              {safeFormatBalance(balance)} COINS
             </div>
           </div>
           
-          {/* Bottom: Card Number (wallet address) */}
+          {/* Bottom: Address */}
           <div className="flex items-center justify-between z-10 min-w-0">
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center min-w-0">
@@ -469,7 +458,7 @@ export function Dashboard() {
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
-              <span className="text-xs text-yellow-900/60 break-words">Card Number</span>
+              <span className="text-xs text-yellow-900/60 break-words">Wallet Address</span>
             </div>
             <Wallet className="h-7 w-7 text-yellow-900/80 flex-shrink-0" />
           </div>
@@ -548,7 +537,6 @@ export function Dashboard() {
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}
         onUpgrade={() => {
-          // Refresh user data after upgrade
           window.location.reload()
         }}
       />

@@ -17,17 +17,15 @@ export function Receive() {
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [isSpeaking, setIsSpeaking] = useState(false)
 
-  // Use user.algorandAddress as the primary source of truth
-  const walletAddress = user?.algorandAddress || wallet?.address
+  const walletAddress = user?.walletAddress || wallet?.address
 
-  // Check if we have valid data
   const hasValidUser = Boolean(
     user && 
     user.id && 
     typeof user.id === 'string' &&
-    user.algorandAddress &&
-    typeof user.algorandAddress === 'string' &&
-    user.algorandAddress.length === 58
+    user.walletAddress &&
+    typeof user.walletAddress === 'string' &&
+    user.walletAddress.length === 58
   )
 
   useEffect(() => {
@@ -66,7 +64,7 @@ export function Receive() {
       await navigator.clipboard.writeText(walletAddress)
       toast({
         title: "Address Copied",
-        description: "Your Algorand address has been copied to clipboard."
+        description: "Your wallet address has been copied to clipboard."
       })
     } catch (error) {
       toast({
@@ -87,7 +85,7 @@ export function Receive() {
         .join(' ')
         .replace(/(.{8})/g, '$1, ')
 
-      await voiceService.speak(`Your Algorand address is: ${formattedAddress}`)
+      await voiceService.speak(`Your wallet address is: ${formattedAddress}`)
     } catch (error) {
       toast({
         title: "Speech Failed",
@@ -130,15 +128,8 @@ export function Receive() {
         <div className="text-center space-y-4">
           <LoadingSpinner size="lg" text="Loading your wallet..." />
           <p className="text-sm text-muted-foreground">
-            Setting up your Algorand wallet...
+            Setting up your wallet...
           </p>
-          <div className="text-xs text-muted-foreground space-y-1 p-4 bg-muted rounded-lg">
-            <p className="font-semibold">Debug Info:</p>
-            <p>User ID: {user?.id || 'N/A'}</p>
-            <p>User Algorand Address: {user?.algorandAddress || 'N/A'}</p>
-            <p>Wallet exists: {wallet ? 'Yes' : 'No'}</p>
-            <p>Wallet Address: {wallet?.address || 'N/A'}</p>
-          </div>
         </div>
       </div>
     )
@@ -196,7 +187,7 @@ export function Receive() {
         {/* Address Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Your Algorand Address</CardTitle>
+            <CardTitle>Your Wallet Address</CardTitle>
             <CardDescription>
               Share this address to receive payments
             </CardDescription>
@@ -247,7 +238,7 @@ export function Receive() {
                 <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold">
                   1
                 </div>
-                <p>Share your QR code or Algorand address with the sender</p>
+                <p>Share your QR code or wallet address with the sender</p>
               </div>
               <div className="flex items-start space-x-3">
                 <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold">

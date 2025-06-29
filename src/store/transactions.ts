@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '../services/supabase'
-import { algorandService } from '../services/algorand'
+import { paymentService } from '../services/payment'
 
 interface Transaction {
   id: string
@@ -19,7 +19,6 @@ interface Transaction {
 interface ISendPayment {
   recipientAddress: string
   amountUsd: number
-  privateKey: Uint8Array
   userId: string
   senderAddress: string
 }
@@ -29,7 +28,6 @@ interface TransactionState {
   balance: number
   balanceUsd: number
   isLoading: boolean
-  wallet: any // Assuming wallet is stored in the state
   currentUserId: string | null
   subscription: any | null
   pollingInterval: NodeJS.Timeout | null
@@ -44,6 +42,7 @@ interface TransactionState {
   stopRealtimeUpdates: () => void
   startPolling: (userId: string, address: string) => void
   stopPolling: () => void
+  addTestFunds: (address: string, amountUsd: number) => Promise<void>
 }
 
 export const useTransactionStore = create<TransactionState>((set, get) => ({
@@ -51,7 +50,6 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   balance: 0,
   balanceUsd: 0,
   isLoading: false,
-  wallet: null,
   currentUserId: null,
   subscription: null,
   pollingInterval: null,
@@ -91,12 +89,48 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
   fetchBalance: async (address: string) => {
     try {
-      const balanceMicroAlgos = await algorandService.getBalance(address)
-      const balance = balanceMicroAlgos / 1_000_000 // Convert to Algos
-      const balanceUsd = await algorandService.microAlgosToUsd(balanceMicroAlgos)
+      const balance = await paymentService.getBalance(address)
+      const balanceUsd = paymentService.coinsToUsd(balance)
 
       set({ balance, balanceUsd })
     } catch (error) {
+      console.error('Failed to fetch balance:', error)
+    }
+  },
+
+  addTestFunds: async (address: string, amountUsd: number) => {
+    try {
+      await paymentService.addTestFunds(address, amountUsd)
+      
+      // Update balance
+      await get().fetchBalance(address)
+      
+      // Add a mock receive transaction
+      const txHash = crypto.randomUUID()
+      const coins = paymentService.usdToCoins(amountUsd)
+      
+      // Store in database if user is logged in
+      const { currentUserId } = get()
+      if (currentUserId) {
+        await supabase
+          .from('transactions')
+          .insert({
+            user_id: currentUserId,
+            tx_hash: txHash,
+            amount_micro_algos: Math.round(coins * 1000000), // Convert to micro units
+            amount_usd: amountUsd,
+            recipient_address: address,
+            sender_address: 'TESTNET_FAUCET_' + crypto.randomUUID().slice(0, 8),
+            type: 'receive',
+            status: 'confirmed'
+          })
+        
+        // Refresh transactions
+        await get().fetchTransactions(currentUserId)
+      }
+    } catch (error) {
+      console.error('Failed to add test funds:', error)
+      throw error
     }
   },
 
@@ -122,16 +156,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         (payload) => {
           // Refresh transactions when we get an update
           get().fetchTransactions(userId)
-          
-          // Also refresh balance if we have a wallet
-          const { wallet } = get()
-          if (wallet?.address) {
-            get().fetchBalance(wallet.address)
-          }
         }
       )
-      .subscribe((status) => {
-      })
+      .subscribe()
 
     set({ subscription: newSubscription, currentUserId: userId })
   },
@@ -165,29 +192,15 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     }
   },
 
-  sendPayment: async ({recipientAddress, amountUsd, privateKey, userId, senderAddress}: ISendPayment) => {
+  sendPayment: async ({recipientAddress, amountUsd, userId, senderAddress}: ISendPayment) => {
     try {
-      // Enhanced validation with detailed error messages
+      // Validate inputs
       if (!recipientAddress || typeof recipientAddress !== 'string' || recipientAddress.trim().length === 0) {
         throw new Error('Recipient address is required and must be a valid string')
       }
 
       if (!amountUsd || typeof amountUsd !== 'number' || amountUsd <= 0) {
         throw new Error('Amount must be a positive number')
-      }
-
-      if (!privateKey) {
-        throw new Error('Private key is required')
-      }
-
-      // Handle both Uint8Array and regular array for privateKey
-      let validPrivateKey: Uint8Array
-      if (privateKey instanceof Uint8Array) {
-        validPrivateKey = privateKey
-      } else if (Array.isArray(privateKey)) {
-        validPrivateKey = new Uint8Array(privateKey)
-      } else {
-        throw new Error('Private key must be a Uint8Array or array')
       }
 
       if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
@@ -198,15 +211,15 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         throw new Error('Sender address is required and must be a valid string')
       }
 
-      // Validate addresses using Algorand service
+      // Validate addresses
       const cleanRecipientAddress = recipientAddress.trim()
       const cleanSenderAddress = senderAddress.trim()
 
-      if (!algorandService.isValidAddress(cleanRecipientAddress)) {
+      if (!paymentService.isValidAddress(cleanRecipientAddress)) {
         throw new Error('Invalid recipient address format')
       }
 
-      if (!algorandService.isValidAddress(cleanSenderAddress)) {
+      if (!paymentService.isValidAddress(cleanSenderAddress)) {
         throw new Error('Invalid sender address format')
       }
 
@@ -214,21 +227,19 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         recipientAddress: cleanRecipientAddress,
         senderAddress: cleanSenderAddress,
         amountUsd,
-        userId,
-        privateKeyLength: validPrivateKey.length
+        userId
       })
 
-      // Convert USD to microAlgos
-      const amountMicroAlgos = await algorandService.usdToMicroAlgos(amountUsd)
-      
-      // Send transaction with correct parameter order
-      const txHash = await algorandService.sendPayment(
-        validPrivateKey,
-        cleanSenderAddress,  // This is the new second parameter
-        cleanRecipientAddress,
-        amountMicroAlgos,
-        `VoicePay transfer of $${amountUsd}`
-      )
+      // Send transaction
+      const txHash = await paymentService.sendPayment({
+        recipientAddress: cleanRecipientAddress,
+        amountUsd,
+        userId,
+        senderAddress: cleanSenderAddress
+      })
+
+      // Convert to coins for storage
+      const coins = paymentService.usdToCoins(amountUsd)
 
       // Store transaction in database for sender
       await supabase
@@ -236,7 +247,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         .insert({
           user_id: userId,
           tx_hash: txHash,
-          amount_micro_algos: amountMicroAlgos,
+          amount_micro_algos: Math.round(coins * 1000000), // Convert to micro units
           amount_usd: amountUsd,
           recipient_address: cleanRecipientAddress,
           sender_address: cleanSenderAddress,
@@ -244,15 +255,12 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
           status: 'confirmed'
         })
 
-      // Look up receiver's user ID by Algorand address
+      // Look up receiver's user ID by wallet address
       const { data: receiverUser, error: receiverError } = await supabase
         .from('users')
         .select('id')
         .eq('algorand_address', cleanRecipientAddress)
         .maybeSingle();
-
-      // Debug: check what is returned for receiverUser and error
-      console.log('receiverUser', receiverUser, 'receiverError', receiverError);
 
       // If the receiver is a registered user, insert a transaction for them as well
       if (receiverUser && receiverUser.id) {
@@ -261,19 +269,17 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
           .insert({
             user_id: receiverUser.id,
             tx_hash: txHash,
-            amount_micro_algos: amountMicroAlgos,
+            amount_micro_algos: Math.round(coins * 1000000),
             amount_usd: amountUsd,
             recipient_address: cleanRecipientAddress,
             sender_address: cleanSenderAddress,
             type: 'receive',
             status: 'confirmed'
           })
-        // If there is an error inserting for the receiver, log it for debugging
+        
         if (insertError) {
           console.error('Error inserting receiver transaction:', insertError)
         }
-      } else {
-        console.warn('No receiver user found for address:', cleanRecipientAddress)
       }
 
       // Refresh transactions and balance
