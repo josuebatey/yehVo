@@ -1,6 +1,6 @@
 # VoicePay - Voice-Controlled Blockchain Micropayments
 
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/yourusername/voicepay)
+[![Deployed Link](https://yeh-vo.netlify.app/)
 
 VoicePay is a revolutionary PWA that enables users to send and receive blockchain-backed micropayments through voice commands. Built with React, TypeScript, and powered by Algorand blockchain.
 
